@@ -9,7 +9,7 @@ The Airbag processor library is an open-source framework to access the the infor
 
 == Background ==
 
-The Airbag processor is intended to sit at the core of a comprehensive crash-reporting system that does not require debugging information to be provided to those running applications being monitored.  Some existing crash-reporting systems, such as [http://www.gnome.org/ GNOME]’s Bug-Buddy and [http://www.apple.com/ Apple]’s [http://developer.apple.com/technotes/tn2004/tn2123.html CrashReporter], require symbolic information to be present on the end user’s computer; in the case of CrashReporter, the reports are transmitted only to Apple, not to third-party developers.  Other systems, such as [http://www.microsoft.com/ Microsoft]’s [http://msdn.microsoft.com/isv/resources/wer/ Windows Error Reporting] and !SupportSoft’s Talkback, transmit only a snapshot of a crashed process’ state, which can later be combined with symbolic debugging information without the need for it to be present on end users’ computers.  Because symbolic debugging information consumes a large amount of space and is otherwise not needed during the normal operation of software, and because some developers are reluctant to release debugging symbols to their customers, Airbag follows the latter approach.
+The Airbag processor is intended to sit at the core of a comprehensive crash-reporting system that does not require debugging information to be provided to those running applications being monitored.  Some existing crash-reporting systems, such as [http://www.gnome.org/ GNOME]’s Bug-Buddy and [http://www.apple.com/ Apple]’s [http://developer.apple.com/technotes/tn2004/tn2123.html CrashReporter], require symbolic information to be present on the end user’s computer; in the case of !CrashReporter, the reports are transmitted only to Apple, not to third-party developers.  Other systems, such as [http://www.microsoft.com/ Microsoft]’s [http://msdn.microsoft.com/isv/resources/wer/ Windows Error Reporting] and !SupportSoft’s Talkback, transmit only a snapshot of a crashed process’ state, which can later be combined with symbolic debugging information without the need for it to be present on end users’ computers.  Because symbolic debugging information consumes a large amount of space and is otherwise not needed during the normal operation of software, and because some developers are reluctant to release debugging symbols to their customers, Airbag follows the latter approach.
 
 We know of no currently-maintained crash-reporting systems that meet our requirements, which are to:
  * allow for symbols to be separate from the application,
@@ -70,3 +70,11 @@ For lower-level testing and debugging, the processor library also includes a `mi
 === Platform Support ===
 
 The Airbag processor library is able to process dumps produced on Mac OS X systems running on both x86 and PowerPC processors, and on Windows and Linux systems running on x86 processors.  The processor library itself is written in standard C++, and should function properly in most Unix-like environments.  It has been tested on Linux and Mac OS X.
+
+== Future Plans ==
+
+There are currently no firm plans or timetables to implement any of these features, although they are possible avenues for future exploration.
+
+The symbol file format can be extended to carry information about the locations of parameters and local variables as stored in stack frames and registers, and the processor can use this information to provide enhanced stack traces showing function arguments and variable values.
+
+On Mac OS X and Linux, we can provide tools to convert files from the minidump format into the native core format.  This will enable developers to open dump files in a native debugger, just as they are presently able to do with minidumps on Windows.
