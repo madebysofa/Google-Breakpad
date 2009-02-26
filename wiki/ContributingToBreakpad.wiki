@@ -1,4 +1,4 @@
-#summary This page is a list of people who've signed the Contributor License Agreement.
+#summary Read this if you'd like to contribute to Breakpad.
 
 = Introduction =
 
@@ -24,4 +24,3 @@ Thanks, and if you have any questions let me know and I'll loop in the legal guy
 = List of people who have signed it =
 
 None so far.  
-
