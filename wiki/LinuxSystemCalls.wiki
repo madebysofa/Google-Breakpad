@@ -2,7 +2,7 @@
 
 = Introduction =
 
-Linux implements it's userland-to-kernel transition using a special library called linux-gate.so that is mapped by the kernel into every process.  For more information, see
+Linux implements its userland-to-kernel transition using a special library called linux-gate.so that is mapped by the kernel into every process.  For more information, see
 
 http://www.trilithium.com/johan/2005/08/linux-gate/
 
@@ -20,7 +20,7 @@ MODULE Linux x86 random_debug_id linux-gate.so
 PUBLIC 400 0 __kernel_vsyscall
 STACK WIN 4 100 1 1 0 0 0 0 0 1
 
-The PUBLIC line indicates that __kernel_vsyscall is at offset 400 (in bytes) from the beginning of linux-gate.so.  The STACK line indicates the size of the function(100), how many bytes it pushes(1), and how many bytes it pops(1).  The last line indicates that EBP is pushed onto the stack before being used by the function.
+The PUBLIC line indicates that __kernel_vsyscall is at offset 400 (in bytes) from the beginning of linux-gate.so.  The STACK line indicates the size of the function(100), how many bytes it pushes(1), and how many bytes it pops(1).  The last 1 indicates that EBP is pushed onto the stack before being used by the function.
 
 = Warnings =
 
