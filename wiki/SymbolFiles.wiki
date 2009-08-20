@@ -103,6 +103,8 @@ The _address_ and _size_ fields are hexadecimal numbers indicating the start add
 
 The _line_ field is the line number to which the machine code should be attributed, in decimal; the first line of the source file is line number 1.  The _filenum_ field is a decimal number appearing in a prior `FILE` record; the name given in that record is the source file name for the machine code.
 
+The line is assumed to belong to the function described by the last preceding `FUNC` record.  Line records may not appear before the first `FUNC' record.
+
 No two line records in a symbol file cover the same range of addresses.  However, there may be many line records with identical line and file numbers, as a given source line may contribute many non-contiguous blocks of machine code.
 
 = `PUBLIC` records =
