@@ -8,7 +8,7 @@ The platform-specific symbol dumping tools parse the debugging information the c
 
 = Overview =
 
-Breakpad symbol files are ASCII text files, with lines delimited as appropriate for the host platform.  Each line is a _record_, divided into fields by single spaces.  The first field is a string indicating what sort of record the line represents (except for line records; these are very common, making them the default saves space).
+Breakpad symbol files are ASCII text files, with lines delimited as appropriate for the host platform.  Each line is a _record_, divided into fields by single spaces; in some cases, the last field of the record can contain spaces.  The first field is a string indicating what sort of record the line represents (except for line records; these are very common, making them the default saves space).  Some fields hold decimal or hexadecimal numbers; hexadecimal numbers have no "0x" prefix, and use lower-case letters.
 
 Breakpad symbol files contain the following record types.  With some restrictions, these may appear in any order.
 
@@ -26,11 +26,15 @@ Breakpad symbol files contain the following record types.  With some restriction
 
 = `MODULE` records =
 
-A `MODULE` record has the form:
+A `MODULE` record provides meta-information about the module the symbol file describes.  It has the form:
 
   `MODULE` _operatingsystem_ _architecture_ _id_ _name_
 
-These records provide meta-information about the executable or shared library from which this symbol file was generated.  A symbol supplier might use this information to find the correct symbol files to use to interpret a given minidump, or to perform other sorts of validation.
+For example:
+{{{
+MODULE Linux x86 D3096ED481217FD4C16B29CD9BC208BA0 firefox-bin
+}}}
+These records provide meta-information about the executable or shared library from which this symbol file was generated.  A symbol supplier might use this information to find the correct symbol files to use to interpret a given minidump, or to perform other sorts of validation.  If present, a `MODULE` record should be the first line in the file.
 
 The fields are separated by spaces, and cannot contain spaces themselves, except for _name_.
 
@@ -40,11 +44,66 @@ The fields are separated by spaces, and cannot contain spaces themselves, except
 || mac     || Macintosh OSX     ||
 || windows || Microsoft Windows ||
 
+  * The _architecture_ field indicates what processor architecture the executable or shared library contains machine code for.  This field should have one of the following values:
+|| *Value* || *Instruction Set Architecture* ||
+|| x86     || Intel IA-32                    ||
+|| x86_64  || AMD64/Intel 64                 ||
+|| ppc     || 32-bit PowerPC                 ||
+|| ppc64   || 64-bit PowerPC                 ||
+|| unknown || unknown                        ||
+
+  * The _id_ field is a sequence of 33 hexadecimal digits that identifies the exact executable or library whose contents the symbol file describes.  The way in which it is computed varies from platform to platform.
+
+  * The _name_ field contains the base name (the final component of the directory path) of the executable or library.  It may contain spaces, and extends to the end of the line.
+
 = `FILE` records =
+
+A `FILE` record holds a source file name for other records to refer to.  It has the form:
+
+  `FILE` _number_ _name_
+
+For example:
+{{{
+FILE 2 /home/jimb/mc/in/browser/app/nsBrowserApp.cpp
+}}}
+
+A `FILE` record provides the name of a source file, and assigns it a number which other records (line records, in particular) can use to refer to that file name.  The _number_ field is a decimal number.  The _name_ field is the name of the file; it may contain spaces.
 
 = `FUNC` records =
 
+A `FUNC` record describes a source-language function.  It has the form:
+
+  `FUNC` _address_ _size_ _paramsize_ _name_
+
+For example:
+{{{
+FUNC c184 30 0 nsQueryInterfaceWithError::operator()(nsID const&, void**) const
+}}}
+
+The _address_ and _size_ fields are hexadecimal numbers indicating the start address and length in bytes of the machine code instructions the function occupies.  (Breakpad symbol files cannot accurately describe functions whose code is not contiguous.)  The start address is relative to the module's load address.
+
+The _paramsize_ field is a hexadecimal number indicating the size, in bytes, of the arguments pushed on the stack for this function.  This is used only by `STACK` records.
+
+The _name_ field is the name of the function.  In languages that use linker symbol name mangling like C++, this should be the source language name (the "unmangled" form).  This field may contain spaces.
+
 = Line records =
+
+A line record describes the source file and line number to which a given range of machine code should be attributed.  It has the form:
+
+  _address_ _size_ _line_ _filenum_
+
+For example:
+{{{
+c184 7 59 4
+}}}
+
+Because they are so common, line records do not begin with a string indicating the record type.  All other record types' names use upper-case letters; hexadecimal numbers, like a line record's _address_, use lower-case letters.
+
+The _address_ and _size_ fields are hexadecimal numbers indicating the start address and length in bytes of the machine code.  The address is relative to the module's load address.
+
+The _line_ field is the line number to which the machine code should be attributed, in decimal; the first line of the source file is line number 1.  The _filenum_ field is a decimal number appearing in a prior `FILE` record; the name given in that record is the source file name for the machine code.
+
+No two line records in a symbol file cover the same range of addresses.  However, there may be many line records with identical line and file numbers, as a given source line may contribute many non-contiguous blocks of machine code.
 
 = `PUBLIC` records =
 
