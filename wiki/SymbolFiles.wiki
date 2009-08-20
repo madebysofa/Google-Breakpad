@@ -34,7 +34,7 @@ These records provide meta-information about the executable or shared library fr
 
 The fields are separated by spaces, and cannot contain spaces themselves, except for _name_.
 
-  * The _operatingsystem_ field names the operating system on which the executable or shared library was intended to run.  This field should be one of the following values:
+  * The _operatingsystem_ field names the operating system on which the executable or shared library was intended to run.  This field should have one of the following values:
 || *Value* || *Meaning*         ||
 || Linux   || Linux             ||
 || mac     || Macintosh OSX     ||
