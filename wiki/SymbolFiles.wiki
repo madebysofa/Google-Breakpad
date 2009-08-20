@@ -30,6 +30,8 @@ Breakpad symbol files contain the following record types.  With some restriction
 
 = `FUNC` records =
 
+= Line records =
+
 = `PUBLIC` records =
 
 = `STACK` records =
