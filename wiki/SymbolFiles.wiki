@@ -1,0 +1,35 @@
+#summary Breakpad's symbol file format
+
+= Introduction =
+
+Given a minidump file, the Breakpad processor produces stack traces that include function names and source locations.  However, minidump files contain only the byte-by-byte contents of threads' registers and stacks, without function names or machine-code-to-source mapping data.  The processor consults Breakpad symbol files for the information it needs to produce human-readable stack traces from the binary-only minidump file.
+
+The platform-specific symbol dumping tools parse the debugging information the compiler provides (whether as DWARF or STABS sections in an ELF file or as stand-alone PDB files), and write that information back out in the Breakpad symbol file format.  This format is much simpler and less detailed than compiler debugging information, and values legibility over compactness.
+
+= Overview =
+
+Breakpad symbol files are ASCII text files, with lines delimited as appropriate for the host platform.  Each line is a _record_, divided into fields by single spaces.  The first field is a string indicating what sort of record the line represents (except for line records; these are very common, making them the default saves space).
+
+Breakpad symbol files contain the following record types.  With some restrictions, these may appear in any order.
+
+  * A `MODULE` record describes the executable file or shared library from which this data was derived, for use by symbol suppliers.  A `MODULE' record should be the first record in the file.
+
+  * A `FILE` record gives a source file name, and assigns it a number by which other records can refer to it.
+
+  * A `FUNC` record describes a function present in the source code.
+
+  * A line record indicates to which source file and line a given range of machine code should be attributed.  The line is attributed to the function defined by the most recent `FUNC` record.
+
+  * A `PUBLIC` record gives the address of a linker symbol.
+
+  * A `STACK` record provides information necessary to produce stack traces.
+
+= `MODULE` records =
+
+= `FILE` records =
+
+= `FUNC` records =
+
+= `PUBLIC` records =
+
+= `STACK` records =
