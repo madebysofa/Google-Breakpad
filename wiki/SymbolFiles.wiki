@@ -26,6 +26,20 @@ Breakpad symbol files contain the following record types.  With some restriction
 
 = `MODULE` records =
 
+A `MODULE` record has the form:
+
+  `MODULE` _operatingsystem_ _architecture_ _id_ _name_
+
+These records provide meta-information about the executable or shared library from which this symbol file was generated.  A symbol supplier might use this information to find the correct symbol files to use to interpret a given minidump, or to perform other sorts of validation.
+
+The fields are separated by spaces, and cannot contain spaces themselves, except for _name_.
+
+  * The _operatingsystem_ field names the operating system on which the executable or shared library was intended to run.  This field should be one of the following values:
+|| *Value* || *Meaning*         ||
+|| Linux   || Linux             ||
+|| mac     || Macintosh OSX     ||
+|| windows || Microsoft Windows ||
+
 = `FILE` records =
 
 = `FUNC` records =
