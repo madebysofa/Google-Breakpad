@@ -109,4 +109,145 @@ No two line records in a symbol file cover the same range of addresses.  However
 
 = `PUBLIC` records =
 
-= `STACK` records =
+= `STACK WIN` records =
+
+= `STACK CFI` records (draft) =
+
+`STACK CFI` ("Call Frame Information") records describe how to walk
+the stack when execution is at a given machine instruction.  These
+records take one of two forms:
+
+  `STACK CFI INIT` _address_ _register,,1,,_: _expression,,1,,_ _register,,2,,_: _expression,,2,,_ ...
+
+  `STACK CFI` _address_ _register,,1,,_: _expression,,1,,_ _register,,2,,_: _expression,,2,,_ ...
+
+For example:
+
+{{{
+STACK CFI INIT 804c4b0 .cfa: $esp 4 + $eip: .cfa 4 - ^
+STACK CFI 804c4b1 .cfa: $esp 8 + $ebp: .cfa 8 - ^
+}}}
+
+Each _address_ is a hexidecimal number.  Each _register_ is the name
+of a register or pseudoregister.  Each _expression_ is a Breakpad
+postfix expression.
+
+STACK CFI records describe, at each machine instruction in a given
+function, how to recover the values the machine registers had in the
+function's caller.  Naturally, some registers' values are simply lost,
+but there are three cases in which they can be recovered:
+
+ * You can always recover the program counter, because that's the function's return address.  If the function is ever going to return, the PC must be saved somewhere.
+
+ * You can always recover the stack pointer.  The function is responsible for popping its stack frame before it returns to the caller, so it must be able to restore this, as well.
+
+ * You should be able to recover the values of callee-saves registers.  These are registers whose values the callee must preserve, either by saving them in its own stack frame before using them and re-loading them before returning, or by not using them at all.
+
+(As an exception, note that functions which never return may not save
+any of this data.  It may not be possible to walk the stack past such
+functions' stack frames.)
+
+Given rules for recovering the values of a function's caller's
+registers, we can walk up the stack.  Starting with the current set of
+registers --- the PC of the instruction we're currently executing, the
+current stack pointer, etc. --- we use CFI to recover the values those
+registers had in the caller of the current frame.  This gives us a PC
+in the caller whose CFI we can look up; we apply the process again to
+find that function's caller; and so on.
+
+Concretely, CFI records represent a table with a row for each machine
+instruction address and a column for each register.  The table entry
+for a given address and register contains a rule describing how, when
+the PC is at that address, to restore the value that register had in
+the caller.
+
+There are some special columns:
+
+ * A column named `.cfa`, for "Call Frame Address", tells how to compute the base address of the frame; other entries can refer to the CFA in their rules.
+
+ * A column named `.ra` represents the return address.
+
+For example, suppose we have a machine with 32-bit registers, one-byte
+instructions, a stack that grows downwards, and an assembly language
+that resembles C.  Suppose further that we have a function whose
+machine code looks like this:
+
+{{{
+func:                                ; entry point; return address at sp
+func+0:      sp -= 16                ; allocate space for stack frame
+func+1:      sp[12] = r0             ; save 4-byte r0 at sp+12
+             ...                     ; stuff that doesn't affect stack
+func+10:     sp -= 4; *sp = x        ; push some 4-byte x on the stack
+             ...                     ; stuff that doesn't affect stack
+func+20:     r0 = sp[16]             ; restore saved r0
+func+21:     sp += 20                ; pop whole stack frame
+func+22:     pc = *sp; sp += 4       ; pop return address and jump to it
+}}}
+
+The following table would describe the function above:
+
+|| *code address*  || *.cfa* || *r0*      || *r1* || ... || *.ra*    ||
+|| func+0          || sp     ||           ||      ||     || `cfa[0]` ||
+|| func+1          || sp+16  ||           ||      ||     || `cfa[0]` ||
+|| func+2          || sp+16  || `cfa[-4]` ||      ||     || `cfa[0]` ||
+|| func+11         || sp+20  || `cfa[-4]` ||      ||     || `cfa[0]` ||
+|| func+21         || sp+20  ||           ||      ||     || `cfa[0]` ||
+|| func+22         || sp     ||           ||      ||     || `cfa[0]` ||
+
+Some things to note here:
+
+ * Each row describes the state of affairs *before* executing the instruction at the given address.  Thus, the row for func+0 describes the state before we execute the first instruction, which allocates the stack frame.  In the next row, the formula for computing the CFA has changed, reflecting the allocation.
+
+ * The other entries are written in terms of the CFA; this allows them to remain unchanged as the stack pointer gets bumped around.  For example, to find the caller's value for r0 at func+2, we would first compute the CFA by adding 16 to the sp, and then subtract four from that to find the address at which r0 was saved.
+
+ * Although the example doesn't show this, most calling conventions designate "callee-saves" and "caller-saves" registers.  The callee must restore the values of "callee-saves" registers before returning (if it uses them at all), whereas the callee is free to use "caller-saves" registers without restoring their values.  A function that uses caller-saves registers typically does not save their original values at all; in this case, the CFI marks such registers' values as "unrecoverable".
+
+ * Exactly where the CFA points in the frame --- at the return address?  below it?  At some fixed point within the frame? --- is a question of definition that depends on the architecture and ABI in use.  But by definition, the CFA remains constant throughout the lifetime of the frame.  It's up to architecture- specific code to know what significance to assign the CFA, if any.
+
+To save space, the most common type of CFI record only mentions the table entries at which changes take place.  So for the above, the CFI
+data would only actually mention the non-blank entries here:
+
+|| *insn*  || *cfa* || *r0*      || *r1* || ... || *ra*     ||
+|| func+0  || sp    ||           ||      ||     || `cfa[0]` ||
+|| func+1  || sp+16 ||           ||      ||     ||          ||
+|| func+2  ||       || `cfa[-4]` ||      ||     ||          ||
+|| func+11 || sp+20 ||           ||      ||     ||          ||
+|| func+21 ||       || r0        ||      ||     ||          ||
+|| func+22 || sp    ||           ||      ||     ||          ||
+
+A `STACK CFI INIT` record indicates that, at the machine instruction
+at _address_, belonging to some function, the value that
+_register,,n,,_ had in that function's caller can be recovered by
+evaluating _expression,,n,,_.  The values of any registers not
+mentioned are unrecoverable.  These rules apply starting at _address_
+and continue up to, but not including, the address given in the next
+`STACK CFI` record.
+
+A `STACK CFI` record (no `INIT`) is the same, except that it mentions
+only those registers whose recovery rules have changed from the
+previous CFI record.
+
+Each expression is a breakpad-style postfix expression.  Expressions
+may contain spaces, but their tokens may not end with colons.
+Register names are always followed by colons.
+
+The special expression `.undef` indicates that the given register's
+value cannot be recovered.
+
+There are two special register names:
+
+ * `.cfa` ("Call Frame Address") is the base address of the stack frame.  Other registers' rules may refer to this.  If no rule is provided for the stack pointer, the value of `.cfa` is the caller's stack pointer.
+
+ * `.ra` is the return address.  This is the value of the restored program counter.  We use `.ra` instead of the architecture-specific name for the program counter.
+
+So the CFI for the example function above would be as follows, if
+`func` were at address 0x1000:
+
+{{{
+STACK CFI INIT 1000 .cfa: $sp .ra: .cfa ^
+STACK CFI      1001 .cfa: $sp 16 +
+STACK CFI      1002 $r0: .cfa 4 - ^
+STACK CFI      100b .cfa: $sp 20 +
+STACK CFI      1015 $r0: $r0
+STACK CFI      1016 .cfa: $sp
+}}}
