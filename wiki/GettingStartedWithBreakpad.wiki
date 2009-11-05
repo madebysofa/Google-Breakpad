@@ -4,7 +4,7 @@
 
 Breakpad is a minidump-generation library used for snapshotting processes out in the field for later analysis.  The format is similar to core files but was developed by Microsoft for it's crash-uploading facility.  A minidump-creation library for Mac/Linux has been implemented so that the crash-processing back-end only needs to understand one format.
 
-Breakpad is currently in use by many client products at Google: Chrome, Picasa, Google Earth, Google TV, and the list goes on.
+Breakpad is currently in use by many client products inside & outside of Google: Chrome, Firefox, Picasa, Camino, Google Earth, and the list goes on.
 
 Frequently the question comes up of why we settled on minidump files.  Core files are notoriously large and undocumented; generating such files on Windows machines proved to be harder than generating minidump files on other machines.  The Windows format is very extensible, additionally, providing mechanisms for adding custom data in the future without breaking processing of older minidumps.
 
