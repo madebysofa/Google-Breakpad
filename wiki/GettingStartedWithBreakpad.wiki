@@ -1,0 +1,48 @@
+#summary Getting Started With Breakpad.
+
+= Introduction =
+
+Breakpad is a minidump-generation library used for snapshotting processes out in the field for later analysis.  The format is similar to core files but was developed by Microsoft for it's crash-uploading facility.  A minidump-creation library for Mac/Linux has been implemented so that the crash-processing back-end only needs to understand one format.
+
+Breakpad is currently in use by many client products at Google: Chrome, Picasa, Google Earth, Google TV, and the list goes on.
+
+Frequently the question comes up of why we settled on minidump files.  Core files are notoriously large and undocumented; generating such files on Windows machines proved to be harder than generating minidump files on other machines.  The Windows format is very extensible, additionally, providing mechanisms for adding custom data in the future without breaking processing of older minidumps.
+
+= Overview/Life of a minidump =
+
+A minidump is generated via calls into the Breakpad library.  By default, initializing Breakpad installs an exception/signal handler that writes a minidump to disk at exception time.  On Windows, this is done via `SetUnhandledExceptionFilter()`; on OS X, this is done by creating a thread that waits on the Mach exception port; and on Linux, this is done by installing a signal handler for various exceptions like `SIGILL, SIGSEGV` etc.
+
+Once the minidump is generated, each platform has a slightly different way of uploading the crash dump.  On Windows & Linux, a separate library of functions is provided that can be called into to do the upload.  On OS X, a separate process is spawned that prompts the user for permission, if configured to do so, and sends the file.  
+
+= Terminology =
+
+*In-process vs. out-of-process exception handling* - it's generally considered that writing the minidump from within the crashed process is unsafe - key process data structures could be corrupted, or the stack on which the exception handler runs could have been overwritten, etc.  All 3 platforms support what's known as "out-of-process" exception handling.
+
+= Integration overview =
+
+== Breakpad Code Overview ==
+
+All the client-side code is found by visiting the Google Project at http://code.google.com/p/google-breakpad.   The following directory structure is present in the `src` directory:
+
+
+  * `processor` Contains minidump-processing code that is used on the server side and isn't of use on the client side
+  * `client` Contains client minidump-generation libraries for all platforms
+  * `tools` Contains source code & projects for building various tools on each platform.
+
+(Among other directories)
+
+== Integration of minidump-generation ==
+
+== Build process specifics(symbol generation, upload) ==
+
+== Out in the field - uploading the minidump ==
+
+== Troubleshooting ==
+
+== Tools ==
+
+== Pointer to Symbol Troubleshooting doc ==
+
+== minidump_dump ==
+
+== crash_report on OS X ==
