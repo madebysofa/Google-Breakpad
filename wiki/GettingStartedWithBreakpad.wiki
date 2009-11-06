@@ -24,25 +24,14 @@ Once the minidump is generated, each platform has a slightly different way of up
 
 All the client-side code is found by visiting the Google Project at http://code.google.com/p/google-breakpad.   The following directory structure is present in the `src` directory:
 
-
   * `processor` Contains minidump-processing code that is used on the server side and isn't of use on the client side
   * `client` Contains client minidump-generation libraries for all platforms
   * `tools` Contains source code & projects for building various tools on each platform.
 
 (Among other directories)
 
-== Integration of minidump-generation ==
+  * <a href="http://code.google.com/p/google-breakpad/wiki/WindowsClientIntegration">Windows Integration Guide</a>
 
-== Build process specifics(symbol generation, upload) ==
+== Build process specifics(symbol generation) ==
 
-== Out in the field - uploading the minidump ==
-
-== Troubleshooting ==
-
-== Tools ==
-
-== Pointer to Symbol Troubleshooting doc ==
-
-== minidump_dump ==
-
-== crash_report on OS X ==
+This applies to all platforms.  Inside `src/tools/{platform}/dump_syms` is a tool that can read debugging information for each platform (e.g. for OS X/Linux, STABS, and soon DWARF, and for Windows, PDB files) and generate a Breakpad symbol file.  This tool should be run on your binary before it's stripped(in the case of OS X/Linux) and the symbol files need to be stored somewhere that the minidump processor can find.  There is another tool, `symupload`, that can be used to upload symbol files if you have written a server that can accept them.
