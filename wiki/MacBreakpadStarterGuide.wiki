@@ -1,23 +1,10 @@
 =How To Add Breakpad To Your Mac Client Application=
 
-  # Link to Breakpad
-  # Copy Breakpad into your Application Package
-  # Add a New Run Script build phase
-  # Adjust the Project Settings
-  # Fix Symbolic Links
-  # Write Code!
-  # Configure Breakpad
-  # Build Your Application
-  # Verify
-  # Upload the symbol files
-  # Test
-  # Register
+<wiki:toc max_depth="2" />
 
 This document is a step-by-step recipe to get your Mac client app to build with Breakpad.
 
-Recipe[Top]
-
-1. Preparing a binary build of Breakpad for use in your tree.  
+== Preparing a binary build of Breakpad for use in your tree  ==
 
 You can either check in a binary build of the Breakpad framework &
 tools or build it as a dependency of your project.  The former is
@@ -26,7 +13,7 @@ other projects is problematic(matching up configuration names), and
 the Breakpad code doesn't change nearly often enough as your
 application's will.
 
-2. Building the requisite targets
+== Building the requisite targets ==
 
 All directories are relative to the `src` directory of the Breakpad checkout.
 
@@ -34,14 +21,11 @@ All directories are relative to the `src` directory of the Breakpad checkout.
   * Execute `cp -R client/mac/build/Release/Breakpad.framework <location in your source tree>`
   * Inside `tools/mac/dump_syms` directory, build dump_syms.xcodeproj, and copy tools/mac/dump_syms/build/Release/dump_syms to a safe location where it can be run during the build process.
 
-3. Adding Breakpad.framework 
+== Adding Breakpad.framework ==
 
-  Inside your application's framework, add the Breakpad.Framework to
-  your project's framework settings.  When you select it from the file
-  chooser, it will let you pick a target to add it to; go ahead and
-  check the one that's relevent to your application.
+Inside your application's framework, add the Breakpad.Framework to  your project's framework settings.  When you select it from the file  chooser, it will let you pick a target to add it to; go ahead and  check the one that's relevant to your application.
 
-3. Copy Breakpad into your Application Package
+== Copy Breakpad into your Application Package ==
 
 Copy Breakpad into your Application Package, so it will be around at run time.
 
@@ -53,25 +37,32 @@ Close the 'Info' panel.
 Use the Contextual Menu to Rename your new phase 'Copy Frameworks'
 Now drag Breakpad  again into this Copy Frameworks phase.  Drag it from whereever it appears in the project file tree.
 
-4. Add a New Run Script build phase
+== Add a New Run Script build phase ==
 
 Near the end of the build phases, add a new Run Script build phase. This will be run before Xcode calls /usr/bin/strip on your project. This is where you'll be calling dump_sym to output the symbols for each architecture of your build. In my case, the relevant lines read:
 
+{{{
 #!/bin/sh
-$TOOL_DIR=&lt;location of dump_syms from step 3 above&gt;
+$TOOL_DIR=<location of dump_syms from step 3 above>
 
 "$TOOL_DIR/dump_syms" -a ppc "$PROD" > "$TARGET_NAME ppc.breakpad"
 
 "$TOOL_DIR/dump_syms" -a i386 "$PROD" > "$TARGET_NAME i386.breakpad"
+}}}
+  
+== Adjust the Project Settings ==
 
-5. Adjust the Project Settings
+  * Turn on Separate Strip,
+  * Set the Strip Style to Non-Global Symbols.
 
-turn on Separate Strip,
-and set the Strip Style to Non-Global Symbols.
+== Write Code! ==
 
-7. Write Code!
+You'll need to have an object that acts as the delegate for NSApplication. Inside this object's header, you'll need to add
 
-You'll need to have an object that acts as the delegate for NSApplication. Inside this object's header, you'll need to add 1) add an ivar for Breakpad and 2) a declaration for the applicationShouldTerminate:(NSApplication *sender) message. (red lines are what you have to add)
+  # add an ivar for Breakpad and
+  # a declaration for the applicationShouldTerminate:(NSApplication`*` sender) message.
+
+{{{
 #import <Breakpad/Breakpad.h>
 
 @interface BreakpadTest : NSObject {
@@ -89,12 +80,16 @@ You'll need to have an object that acts as the delegate for NSApplication. Insid
 .
 .
 @end
+}}}
+
 Inside your object's implementation file,
 
-  1) add the following method InitBreakpad
-  2) modify your awakeFromNib method to look like the one below,
-  3) modify/add your application's delegate method to look like the one below
+  # add the following method InitBreakpad
+  # modify your awakeFromNib method to look like the one below,
+  # modify/add your application's delegate method to look like the one below
 
+
+{{{
 static BreakpadRef InitBreakpad(void) {
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
   BreakpadRef breakpad = 0;
@@ -116,28 +111,26 @@ static BreakpadRef InitBreakpad(void) {
   BreakpadRelease(breakpad);
   return NSTerminateNow;
 }
-8. Configure Breakpad
+}}}
+
+== Configure Breakpad ==
 
 Configure Breakpad for your application.
 
-View the design document at Breakpad Mac Client
-Take a look inside the Breakpad.framework at the Breakpad.h file for the keys, default values, and descriptions to be passed to BreakpadCreate()
-Add/Edit the Breakpad specific entries in the dictionary passed to BreakpadCreate() -- typically your application's info plist.
-If you're testing, Set the URL to write to to the staging servers.
-If you're releasing, use the production servers. The URLs are listed in the design document.
-Typically, you'll need a stable unique name for your product, that identifies it on the Breakpad server, and you'll need to override the name shown to the user, since it defaults to that stable unique name.
+  # Take a look inside the Breakpad.framework at the Breakpad.h file for the keys, default values, and descriptions to be passed to BreakpadCreate().
+  # Add/Edit the Breakpad specific entries in the dictionary passed to BreakpadCreate() -- typically your application's info plist.
 
 Example from the Notifier Info.plist:
-
-
+{{{
   <key>BreakpadProduct</key><string>Google_Notifier_Mac</string>
   <key>BreakpadProductDisplay</key><string>${PRODUCT_NAME}</string>
-
-9. Build Your Application
+}}}
+  
+== Build Your Application ==
 
 Almost done!
 
-10. Verify
+== Verify ==
 
 Double-check:
 
@@ -147,7 +140,7 @@ The symbol files have reasonable contents (you can look at them with a text edit
 
 Look again at the Copy Frameworks phase of your project. Are you leaking .h files? Select them and delete them. (If you drag a bunch of files into your project, Xcode often wants to copy your .h files into the build, revealing Google secrets. Be vigilant!)
 
-11. Upload the symbol files
+== Upload the symbol file ==
 
 You'll need to configure your build process to store symbols in a location that is accessible by the minidump processor.  There is a tool in tools/mac/symupload that can be used to send the symbol file via HTTP post.
   
@@ -155,12 +148,14 @@ You'll need to configure your build process to store symbols in a location that 
 
 Configure breakpad to send reports to a URL by adding to your app's Info.plist:
 
+{{{
 <key>BreakpadURL</key>
 <string>upload URL</string>
 <key>BreakpadReportInterval</key>
 <string>30</string>
+}}}
 
-Final Notes
+== Final Notes ==
 
 Breakpad checks whether it is being run under a debugger, and if so, normally does nothing.
 But, you can force Breakpad to function under a debugger by setting the Unix shell variable BREAKPAD_IGNORE_DEBUGGER to a non-zero value.
