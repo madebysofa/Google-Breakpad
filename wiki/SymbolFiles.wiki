@@ -82,7 +82,7 @@ FUNC c184 30 0 nsQueryInterfaceWithError::operator()(nsID const&, void**) const
 
 The _address_ and _size_ fields are hexadecimal numbers indicating the start address and length in bytes of the machine code instructions the function occupies.  (Breakpad symbol files cannot accurately describe functions whose code is not contiguous.)  The start address is relative to the module's load address.
 
-The _paramsize_ field is a hexadecimal number indicating the size, in bytes, of the arguments pushed on the stack for this function.  This is used only by `STACK` records.
+The _paramsize_ field is a hexadecimal number indicating the size, in bytes, of the arguments pushed on the stack for this function.  Some calling conventions, like the Microsoft Windows `stdcall` convention, require the called function to pop parameters passed to it on the stack from its caller before returning.  The stack walker uses this value, along with data from `STACK` records, to step from the called function's frame to the caller's frame.
 
 The _name_ field is the name of the function.  In languages that use linker symbol name mangling like C++, this should be the source language name (the "unmangled" form).  This field may contain spaces.
 
@@ -109,7 +109,29 @@ No two line records in a symbol file cover the same range of addresses.  However
 
 = `PUBLIC` records =
 
+A `PUBLIC` record describes a publicly visible linker symbol, such as that used to identify an assembly language entry point or region of memory. It has the form:
+
+  PUBLIC _address_ _paramsize_ _name_
+
+For example:
+{{{
+PUBLIC 2160 0 Public2_1
+}}}
+
+The Breakpad processor essentially treats a name appearing in a `PUBLIC` record as if it were a function with no line number data and an indeterminate size: it extends to the next address mentioned.
+
+The _address_ field is a hexadecimal number indicating the symbol's address, relative to the module's load address.
+
+The _paramsize_ field is a hexadecimal number indicating the size of the parameters passed to the code whose entry point the symbol marks, if known. This field has the same meaning as the _paramsize_ field of a `FUNC` record; see that description for more details.
+
+The _name_ field is the name of the symbol.  In languages that use linker symbol name mangling like C++, this should be the source language name (the "unmangled" form).  This field may contain spaces.
+
 = `STACK WIN` records =
+
+A `STACK WIN` record provides information about how to find the caller's frame, given the callee's frame. It has the form:
+
+  STACK WIN _type_ _rva_ _code_size_ _prologue_size_ _epilog_size_ _parameter_size_ _saved_register_size_ _local_size_ _max_stack_size_ _has_program_string_ _program_string_OR_allocates_base_pointer_
+
 
 = `STACK CFI` records (draft) =
 
