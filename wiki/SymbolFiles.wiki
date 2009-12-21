@@ -139,7 +139,7 @@ STACK WIN 4 2170 14 1 0 0 0 0 0 1 $eip 4 + ^ = $esp $ebp 8 + = $ebp $ebp ^ =
 
 All fields of a `STACK WIN` record, except for the last, are hexadecimal numbers.
 
-The _type_ field indicates what sort of stack frame data this record holds. Its value should be one of the values of the [http://msdn.microsoft.com/en-us/library/bc5207xw%28VS.100%29.aspx `StackFrameTypeEnum`] type in Microsoft's [http://msdn.microsoft.com/en-us/library/x93ctkx8%28VS.100%29.aspx Debug Interface Access (DIA)] API. Breakpad uses only records of type 4 (`FrameTypeFrameData`) and 0 (`FrameTypeFPO`); it ignores others.  These types differ only in whether the last field is an _allocates_base_pointer_ flag (`FrameTypeFPO`) or a program string (`FrameTypeFrameData`). If more than one record covers a given address, Breakpad prefers `FrameTypeFrameData` records over `FrameTypeFPO` records.
+The _type_ field indicates what sort of stack frame data this record holds. Its value should be one of the values of the [http://msdn.microsoft.com/en-us/library/bc5207xw%28VS.100%29.aspx StackFrameTypeEnum] type in Microsoft's [http://msdn.microsoft.com/en-us/library/x93ctkx8%28VS.100%29.aspx Debug Interface Access (DIA)] API. Breakpad uses only records of type 4 (`FrameTypeFrameData`) and 0 (`FrameTypeFPO`); it ignores others.  These types differ only in whether the last field is an _allocates_base_pointer_ flag (`FrameTypeFPO`) or a program string (`FrameTypeFrameData`). If more than one record covers a given address, Breakpad prefers `FrameTypeFrameData` records over `FrameTypeFPO` records.
 
 The _rva_ and _code_size_ fields give the starting address and length in bytes of the machine code covered by this record.
 
@@ -153,7 +153,25 @@ The _local_size_ field gives the number of bytes in the stack frame dedicated to
 
 The _max_stack_size_ field gives the maximum number of bytes pushed on the stack in the frame.  Breakpad does not use this value.
 
-If the _has_program_string_ field is zero, then the `STACK WIN` record's final field is an _allocates_base_pointer_ flag; this is expected for records whose _type_ is 0. Otherwise, the final field is a program string.
+If the _has_program_string_ field is zero, then the `STACK WIN` record's final field is an _allocates_base_pointer_ flag, as a hexadecimal number; this is expected for records whose _type_ is 0. Otherwise, the final field is a program string.
+
+== Interpreting a `STACK WIN` record ==
+
+Given the register values for a frame F, we can find the calling frame as follows:
+
+  * If the _has_program_string_ field of a `STACK WIN` record is zero, then the final field is _allocates_base_pointer_, a flag indicating whether the frame uses the frame pointer register, `%ebp`, as a general-purpose register.
+    * If _allocates_base_pointer_ is true, then `%ebp` does not point to the frame's base address. Instead, the frame's size is the sum of the _local_size_ field, the _saved_register_size_ field, and the parameter size of the function frame F called, if any. (You must find this value in F's callee's `FUNC`, `STACK WIN`, or `PUBLIC` records.) If we call that total _frame_size_, then:
+      * F's return address is at `%esp + `_frame_size_,
+      * the caller's value of `%ebp` is saved at `%esp + `_frame_size_` - 8`, and 
+      * the caller's value of `%esp` just before the call instruction was `%esp + `_frame_size_` + 4`.
+    * If _allocates_base_pointer_ is false, then F's function doesn't use `%ebp` at all. You may recover the calling frame as above, except that the caller's value of `%ebp` is the same as F's value for `%ebp`, so no steps are necessary to recover it.
+  * If the _has_program_string_ field of a `STACK WIN` record is not zero, then the record's final field is a string containing a program to be interpreted to recover the caller's frame. The comments in the [http://code.google.com/p/google-breakpad/source/browse/trunk/src/processor/postfix_evaluator.h#40 postfix_evaluator.h] header file explain the language in which the program is written. You should place the following variables in the dictionary before interpreting the program:
+    * `$ebp` and `$esp` should be the values of the `%ebp` and `%esp` registers in F.
+    * `.cbSavedRegs` and `.cbLocals` should be the values of the `STACK WIN` record's _saved_register_size_ and _local_size_ fields.
+    * `.raSearchStart` should be set to the address on the stack to begin scanning for a return address, if necessary. The Breakpad processor sets this to the value of `%esp` in F, plus the _frame_size_ value mentioned above.
+  If the program stores values for `$eip`, `$esp`, `$ebp`, `$ebx`, `$esi`, or `$edi`, then those are the values of the given registers in the caller. If the value of `$eip` is zero, that indicates that the end of the stack has been reached.
+
+The Breakpad processor checks that the value yielded by the above for the calling frame's instruction address refers to known code; if the address seems to be bogus, then it uses a heuristic search to find F's return address and stack base.
 
 = `STACK CFI` records (draft) =
 
