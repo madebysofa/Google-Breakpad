@@ -118,7 +118,7 @@ For example:
 PUBLIC 2160 0 Public2_1
 }}}
 
-The Breakpad processor essentially treats a name appearing in a `PUBLIC` record as if it were a function with no line number data and an indeterminate size: it extends to the next address mentioned.
+The Breakpad processor essentially treats a `PUBLIC` record as defining a function with no line number data and an indeterminate size: the code extends to the next address mentioned. If a given address is covered by both a `PUBLIC` record and a `FUNC` record, the processor uses the `FUNC` data.
 
 The _address_ field is a hexadecimal number indicating the symbol's address, relative to the module's load address.
 
@@ -128,10 +128,32 @@ The _name_ field is the name of the symbol.  In languages that use linker symbol
 
 = `STACK WIN` records =
 
-A `STACK WIN` record provides information about how to find the caller's frame, given the callee's frame. It has the form:
+Given a stack frame, a `STACK WIN` record indicates how to find the frame that called it. It has the form:
 
-  STACK WIN _type_ _rva_ _code_size_ _prologue_size_ _epilog_size_ _parameter_size_ _saved_register_size_ _local_size_ _max_stack_size_ _has_program_string_ _program_string_OR_allocates_base_pointer_
+  STACK WIN _type_ _rva_ _code_size_ _prologue_size_ _epilogue_size_ _paramsize_ _saved_register_size_ _local_size_ _max_stack_size_ _has_program_string_ _program_string_OR_allocates_base_pointer_
 
+For example:
+{{{
+STACK WIN 4 2170 14 1 0 0 0 0 0 1 $eip 4 + ^ = $esp $ebp 8 + = $ebp $ebp ^ =
+}}}
+
+All fields of a `STACK WIN` record, except for the last, are hexadecimal numbers.
+
+The _type_ field indicates what sort of stack frame data this record holds. Its value should be one of the values of the [http://msdn.microsoft.com/en-us/library/bc5207xw%28VS.100%29.aspx `StackFrameTypeEnum`] type in Microsoft's [http://msdn.microsoft.com/en-us/library/x93ctkx8%28VS.100%29.aspx Debug Interface Access (DIA)] API. Breakpad uses only records of type 4 (`FrameTypeFrameData`) and 0 (`FrameTypeFPO`); it ignores others.  These types differ only in whether the last field is an _allocates_base_pointer_ flag (`FrameTypeFPO`) or a program string (`FrameTypeFrameData`). If more than one record covers a given address, Breakpad prefers `FrameTypeFrameData` records over `FrameTypeFPO` records.
+
+The _rva_ and _code_size_ fields give the starting address and length in bytes of the machine code covered by this record.
+
+The _prologue_size_ and _epilogue_size_ fields give the length, in bytes, of the prologue and epilogue machine code within the record's range. Breakpad does not use these values.
+
+The _paramsize_ field gives the number of argument bytes this function expects to have been passed. This field has the same meaning as the _paramsize_ field of a `FUNC` record; see that description for more details.
+
+The _saved_register_size_ field gives the number of bytes in the stack frame dedicated to preserving the values of any callee-saves registers used by this function.
+
+The _local_size_ field gives the number of bytes in the stack frame dedicated to holding the function's local variables and temporary values.
+
+The _max_stack_size_ field gives the maximum number of bytes pushed on the stack in the frame.  Breakpad does not use this value.
+
+If the _has_program_string_ field is zero, then the `STACK WIN` record's final field is an _allocates_base_pointer_ flag; this is expected for records whose _type_ is 0. Otherwise, the final field is a program string.
 
 = `STACK CFI` records (draft) =
 
