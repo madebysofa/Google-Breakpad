@@ -1,4 +1,5 @@
 #summary Breakpad's symbol file format
+#labels Featured
 
 = Introduction =
 
