@@ -194,8 +194,8 @@ STACK CFI 804c4b1 .cfa: $esp 8 + $ebp: .cfa 8 - ^
 }}}
 
 Each _address_ is a hexidecimal number.  Each _register_ is the name
-of a register or pseudoregister.  Each _expression_ is a Breakpad
-postfix expression.
+of a register or pseudoregister. Each _expression_ is a Breakpad
+postfix expression.  (The appropriate register names for a given architecture are determined when `STACK CFI` records are first enabled for that architecture, and should be documented in the appropriate `stackwalker_`_architecture_`.cc` source file.)
 
 STACK CFI records describe, at each machine instruction in a given
 function, how to recover the values the machine registers had in the
