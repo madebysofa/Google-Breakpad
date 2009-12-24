@@ -181,22 +181,24 @@ The Breakpad processor checks that the value yielded by the above for the callin
 
 `STACK CFI` ("Call Frame Information") records describe how to walk
 the stack when execution is at a given machine instruction.  These
-records take one of two forms:
+records take one of three forms:
 
-  `STACK CFI INIT` _address_ _register,,1,,_: _expression,,1,,_ _register,,2,,_: _expression,,2,,_ ...
+  `STACK CFI INIT` _address_ _size_ _register,,1,,_: _expression,,1,,_ _register,,2,,_: _expression,,2,,_ ...
 
   `STACK CFI` _address_ _register,,1,,_: _expression,,1,,_ _register,,2,,_: _expression,,2,,_ ...
+
+  `STACK CFI END` _address_
 
 For example:
 
 {{{
-STACK CFI INIT 804c4b0 .cfa: $esp 4 + $eip: .cfa 4 - ^
+STACK CFI INIT 804c4b0 40 .cfa: $esp 4 + $eip: .cfa 4 - ^
 STACK CFI 804c4b1 .cfa: $esp 8 + $ebp: .cfa 8 - ^
 }}}
 
-Each _address_ is a hexidecimal number.  Each _register_ is the name
+The _address_ and _size_ fields are hexadecimal numbers.  Each _register_ is the name
 of a register or pseudoregister. Each _expression_ is a Breakpad
-postfix expression.  (The appropriate register names for a given architecture are determined when `STACK CFI` records are first enabled for that architecture, and should be documented in the appropriate `stackwalker_`_architecture_`.cc` source file.)
+postfix expression, which may contain spaces, but never ends with a colon.  (The appropriate register names for a given architecture are determined when `STACK CFI` records are first enabled for that architecture, and should be documented in the appropriate `stackwalker_`_architecture_`.cc` source file.)
 
 STACK CFI records describe, at each machine instruction in a given
 function, how to recover the values the machine registers had in the
@@ -287,11 +289,11 @@ _register,,n,,_ had in that function's caller can be recovered by
 evaluating _expression,,n,,_.  The values of any registers not
 mentioned are unrecoverable.  These rules apply starting at _address_
 and continue up to, but not including, the address given in the next
-`STACK CFI` record.
+`STACK CFI` record. The _size_ field is the total number of bytes of machine code covered by this record and any subsequent `STACK CFI` records (until the next `STACK CFI INIT` record).
 
 A `STACK CFI` record (no `INIT`) is the same, except that it mentions
 only those registers whose recovery rules have changed from the
-previous CFI record.
+previous CFI record. There must be a prior `STACK CFI INIT` or `STACK CFI` record in the symbol file. The _address_ field of this record must be greater than that of the previous record, and it must not be at or beyond the end of the range given by the most recent `STACK CFI INIT` record.
 
 Each expression is a breakpad-style postfix expression.  Expressions
 may contain spaces, but their tokens may not end with colons.
