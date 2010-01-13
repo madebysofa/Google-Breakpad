@@ -288,7 +288,7 @@ A `STACK CFI INIT` record indicates that, at the machine instruction
 at _address_, belonging to some function, the value that
 _register,,n,,_ had in that function's caller can be recovered by
 evaluating _expression,,n,,_.  The values of any callee-saves registers not
-mentioned are assumed to be unchanged.  (STACK CFI records never mention caller-saves registers.)  These rules apply starting at _address_
+mentioned are assumed to be unchanged.  (`STACK CFI` records never mention caller-saves registers.)  These rules apply starting at _address_
 and continue up to, but not including, the address given in the next
 `STACK CFI` record. The _size_ field is the total number of bytes of machine code covered by this record and any subsequent `STACK CFI` records (until the next `STACK CFI INIT` record).
 
