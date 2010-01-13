@@ -287,8 +287,8 @@ data would only actually mention the non-blank entries here:
 A `STACK CFI INIT` record indicates that, at the machine instruction
 at _address_, belonging to some function, the value that
 _register,,n,,_ had in that function's caller can be recovered by
-evaluating _expression,,n,,_.  The values of any registers not
-mentioned are unrecoverable.  These rules apply starting at _address_
+evaluating _expression,,n,,_.  The values of any callee-saves registers not
+mentioned are assumed to be unchanged; the values of any caller-saves registers not mentioned are assumed to be unrecoverable.  These rules apply starting at _address_
 and continue up to, but not including, the address given in the next
 `STACK CFI` record. The _size_ field is the total number of bytes of machine code covered by this record and any subsequent `STACK CFI` records (until the next `STACK CFI INIT` record).
 
