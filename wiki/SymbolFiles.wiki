@@ -310,7 +310,7 @@ There are two special register names:
  * `.ra` is the return address.  This is the value of the restored program counter.  We use `.ra` instead of the architecture-specific name for the program counter.
 
 So the CFI for the example function above would be as follows, if
-`func` were at address 0x1000:
+`func` were at address 0x1000 (relative to the module's load address):
 
 {{{
 STACK CFI INIT 1000 .cfa: $sp .ra: .cfa ^
