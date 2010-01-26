@@ -142,7 +142,7 @@ All fields of a `STACK WIN` record, except for the last, are hexadecimal numbers
 
 The _type_ field indicates what sort of stack frame data this record holds. Its value should be one of the values of the [http://msdn.microsoft.com/en-us/library/bc5207xw%28VS.100%29.aspx StackFrameTypeEnum] type in Microsoft's [http://msdn.microsoft.com/en-us/library/x93ctkx8%28VS.100%29.aspx Debug Interface Access (DIA)] API. Breakpad uses only records of type 4 (`FrameTypeFrameData`) and 0 (`FrameTypeFPO`); it ignores others.  These types differ only in whether the last field is an _allocates_base_pointer_ flag (`FrameTypeFPO`) or a program string (`FrameTypeFrameData`). If more than one record covers a given address, Breakpad prefers `FrameTypeFrameData` records over `FrameTypeFPO` records.
 
-The _rva_ and _code_size_ fields give the starting address and length in bytes of the machine code covered by this record.
+The _rva_ and _code_size_ fields give the starting address and length in bytes of the machine code covered by this record. The starting address is relative to the module's load address.
 
 The _prologue_size_ and _epilogue_size_ fields give the length, in bytes, of the prologue and epilogue machine code within the record's range. Breakpad does not use these values.
 
@@ -290,11 +290,11 @@ _register,,n,,_ had in that function's caller can be recovered by
 evaluating _expression,,n,,_.  The values of any callee-saves registers not
 mentioned are assumed to be unchanged.  (`STACK CFI` records never mention caller-saves registers.)  These rules apply starting at _address_
 and continue up to, but not including, the address given in the next
-`STACK CFI` record. The _size_ field is the total number of bytes of machine code covered by this record and any subsequent `STACK CFI` records (until the next `STACK CFI INIT` record).
+`STACK CFI` record. The _size_ field is the total number of bytes of machine code covered by this record and any subsequent `STACK CFI` records (until the next `STACK CFI INIT` record). The _address_ field is relative to the module's load address.
 
 A `STACK CFI` record (no `INIT`) is the same, except that it mentions
 only those registers whose recovery rules have changed from the
-previous CFI record. There must be a prior `STACK CFI INIT` or `STACK CFI` record in the symbol file. The _address_ field of this record must be greater than that of the previous record, and it must not be at or beyond the end of the range given by the most recent `STACK CFI INIT` record.
+previous CFI record. There must be a prior `STACK CFI INIT` or `STACK CFI` record in the symbol file. The _address_ field of this record must be greater than that of the previous record, and it must not be at or beyond the end of the range given by the most recent `STACK CFI INIT` record. The address is relative to the module's load address.
 
 Each expression is a breakpad-style postfix expression.  Expressions
 may contain spaces, but their tokens may not end with colons.
