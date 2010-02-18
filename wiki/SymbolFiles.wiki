@@ -197,9 +197,8 @@ STACK CFI INIT 804c4b0 40 .cfa: $esp 4 + $eip: .cfa 4 - ^
 STACK CFI 804c4b1 .cfa: $esp 8 + $ebp: .cfa 8 - ^
 }}}
 
-The _address_ and _size_ fields are hexadecimal numbers.  Each _register_ is the name
-of a register or pseudoregister. Each _expression_ is a Breakpad
-postfix expression, which may contain spaces, but never ends with a colon.  (The appropriate register names for a given architecture are determined when `STACK CFI` records are first enabled for that architecture, and should be documented in the appropriate `stackwalker_`_architecture_`.cc` source file.)
+The _address_ and _size_ fields are hexadecimal numbers.  Each _register_,,i,, is the name
+of a register or pseudoregister. Each _expression_ is a Breakpad postfix expression, which may contain spaces, but never ends with a colon.  (The appropriate register names for a given architecture are determined when `STACK CFI` records are first enabled for that architecture, and should be documented in the appropriate `stackwalker_`_architecture_`.cc` source file.)
 
 STACK CFI records describe, at each machine instruction in a given
 function, how to recover the values the machine registers had in the
@@ -298,10 +297,10 @@ previous CFI record. There must be a prior `STACK CFI INIT` or `STACK CFI` recor
 Each expression is a breakpad-style postfix expression.  Expressions
 may contain spaces, but their tokens may not end with colons. When an expression mentions a register, it refers to the value of that register in the callee, even if a prior name/expression pair gives that register's value in the caller. The exception is `.cfa`, which refers to the canonical frame address computed by the .cfa rule in force at the current instruction.
 
-Register names are always followed by colons.
-
 The special expression `.undef` indicates that the given register's
 value cannot be recovered.
+
+The register names preceding the expressions are always followed by colons. The expressions themselves never contain tokens ending with colons.
 
 There are two special register names:
 
