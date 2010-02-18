@@ -232,7 +232,7 @@ the caller.
 
 There are some special columns:
 
- * A column named `.cfa`, for "Call Frame Address", tells how to compute the base address of the frame; other entries can refer to the CFA in their rules.
+ * A column named `.cfa`, for "Canonical Frame Address", tells how to compute the base address of the frame; other entries can refer to the CFA in their rules.
 
  * A column named `.ra` represents the return address.
 
@@ -273,8 +273,7 @@ Some things to note here:
 
  * Exactly where the CFA points in the frame --- at the return address?  below it?  At some fixed point within the frame? --- is a question of definition that depends on the architecture and ABI in use.  But by definition, the CFA remains constant throughout the lifetime of the frame.  It's up to architecture- specific code to know what significance to assign the CFA, if any.
 
-To save space, the most common type of CFI record only mentions the table entries at which changes take place.  So for the above, the CFI
-data would only actually mention the non-blank entries here:
+To save space, the most common type of CFI record only mentions the table entries at which changes take place.  So for the above, the CFI data would only actually mention the non-blank entries here:
 
 || *insn*  || *cfa* || *r0*      || *r1* || ... || *ra*     ||
 || func+0  || sp    ||           ||      ||     || `cfa[0]` ||
@@ -297,7 +296,8 @@ only those registers whose recovery rules have changed from the
 previous CFI record. There must be a prior `STACK CFI INIT` or `STACK CFI` record in the symbol file. The _address_ field of this record must be greater than that of the previous record, and it must not be at or beyond the end of the range given by the most recent `STACK CFI INIT` record. The address is relative to the module's load address.
 
 Each expression is a breakpad-style postfix expression.  Expressions
-may contain spaces, but their tokens may not end with colons.
+may contain spaces, but their tokens may not end with colons. When an expression mentions a register, it refers to the value of that register in the callee, even if a prior name/expression pair gives that register's value in the caller. The exception is `.cfa`, which refers to the canonical frame address computed by the .cfa rule in force at the current instruction.
+
 Register names are always followed by colons.
 
 The special expression `.undef` indicates that the given register's
@@ -305,7 +305,7 @@ value cannot be recovered.
 
 There are two special register names:
 
- * `.cfa` ("Call Frame Address") is the base address of the stack frame.  Other registers' rules may refer to this.  If no rule is provided for the stack pointer, the value of `.cfa` is the caller's stack pointer.
+ * `.cfa` ("Canonical Frame Address") is the base address of the stack frame.  Other registers' rules may refer to this.  If no rule is provided for the stack pointer, the value of `.cfa` is the caller's stack pointer.
 
  * `.ra` is the return address.  This is the value of the restored program counter.  We use `.ra` instead of the architecture-specific name for the program counter.
 
