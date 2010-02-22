@@ -2,7 +2,7 @@
 
 = Introduction =
 
-http://code.google.com/p/google-breakpad/breakpad.png
+http://code.google.com/p/google-breakpad/wiki/breakpad.png
 
 = Details =
 
