@@ -2,7 +2,7 @@
 
 = Introduction =
 
-<img title="Breakpad Organization" alt="A diagram showing how the Breakpad client, dumper, and processor work together to collect remote crash reports." src="breakpad.png">
+http://code.google.com/p/google-breakpad/breakpad.png
 
 = Details =
 
