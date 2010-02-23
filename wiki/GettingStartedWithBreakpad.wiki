@@ -2,11 +2,37 @@
 
 = Introduction =
 
-Breakpad is a minidump-generation library used for snapshotting processes out in the field for later analysis.  The format is similar to core files but was developed by Microsoft for it's crash-uploading facility.  A minidump-creation library for Mac/Linux has been implemented so that the crash-processing back-end only needs to understand one format.
+Breakpad is a library and tool suite that allows you to distribute an application to users with the compiler-provided debugging information removed, record crashes in compact "minidump" files, send them back to your server, and produce C and C++ stack traces from these minidumps. Breakpad can also write minidumps on request for programs that have not crashed.
 
-Breakpad is currently in use by many client products inside & outside of Google: Chrome, Firefox, Picasa, Camino, Google Earth, and the list goes on.
+Breakpad is currently in use by many client products inside and outside of Google: Chrome, Firefox, Picasa, Camino, Google Earth, and others.
 
-Frequently the question comes up of why we settled on minidump files.  Core files are notoriously large and undocumented; generating such files on Windows machines proved to be harder than generating minidump files on other machines.  The Windows format is very extensible, additionally, providing mechanisms for adding custom data in the future without breaking processing of older minidumps.
+http://google-breakpad.googlecode.com/svn/wiki/breakpad.png
+
+Breakpad has three main components:
+
+* The *client* is a library that you include in your application. It can write minidump files capturing the current threads' state and the identities of the currently loaded executable and shared libraries. You can configure the client to write a minidump when a crash occurs, or when explicitly requested.
+
+* The *symbol dumper* is a program that reads the debugging information produced by the compiler and produces a *symbol file*, in Breakpad's own format.
+
+* The *processor* is a program that reads a minidump file, finds the appropriate symbol files for the versions of the executables and shared libraries the minidump mentions, and produces a human-readable C/C++ stack trace.
+
+= The minidump file format =
+
+The minidump file format is similar to core files but was developed by Microsoft for its crash-uploading facility. A minidump file contains:
+
+* A list of the executable and shared libraries that were loaded in the process at the time the dump was created. This list includes both file names and identifiers for the particular versions of those files that were loaded.
+
+* A list of threads present in the process. For each thread, the minidump includes the state of the processor registers, and the contents of the threads' stack memory. These data are uninterpreted byte streams, as the Breakpad client generally has no debugging information available to produce function names or line numbers, or even identify stack frame boundaries.
+
+* Other information about the system on which the dump was collected: processor and operating system versions, the reason for the dump, and so on.
+
+Breakpad uses Windows minidump files on all platforms, instead of the traditional core files, for several reasons:
+
+* Core files can be very large --- much too large to practically send across a network to report the crash back to the collector for processing. The minidump file format was designed for this purpose. 
+
+* The core file format is poorly documented.
+
+* It is harder to persuade a Windows machine to produce a core dump file than it is to persuade other machines to write a minidump file.
 
 = Overview/Life of a minidump =
 
