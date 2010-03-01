@@ -308,6 +308,8 @@ There are two special register names:
 
  * `.ra` is the return address.  This is the value of the restored program counter.  We use `.ra` instead of the architecture-specific name for the program counter.
 
+The Breakpad stack walker requires that there be rules in force for `.cfa` and `.ra` at every code address from which it unwinds. If those rules are not present, the stack walker will ignore the `STACK CFI` data, and try to use a different strategy.
+
 So the CFI for the example function above would be as follows, if
 `func` were at address 0x1000 (relative to the module's load address):
 
