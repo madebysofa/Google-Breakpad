@@ -178,7 +178,7 @@ Given the register values for a frame F, we can find the calling frame as follow
 
 The Breakpad processor checks that the value yielded by the above for the calling frame's instruction address refers to known code; if the address seems to be bogus, then it uses a heuristic search to find F's return address and stack base.
 
-= `STACK CFI` records (draft) =
+= `STACK CFI` records =
 
 `STACK CFI` ("Call Frame Information") records describe how to walk
 the stack when execution is at a given machine instruction.  These
