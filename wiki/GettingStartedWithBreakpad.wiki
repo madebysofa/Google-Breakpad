@@ -1,4 +1,5 @@
 #summary Getting Started With Breakpad.
+#labels Featured
 
 = Introduction =
 
