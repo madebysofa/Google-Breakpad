@@ -6,7 +6,7 @@ Thanks for thinking of contributing to Breakpad! Unfortunately there are some pe
 
 
 == Legal ==
-If you're doing work individually, not as part of any employment, you'll need to sign the <a href=http://code.google.com/legal/individual-cla-v1.0.html>Individual Contributor License Agreement</a>.  This aggreement can be completed electronically.
+If you're doing work individually, not as part of any employment, you'll need to sign the <a href=http://code.google.com/legal/individual-cla-v1.0.html>Individual Contributor License Agreement</a>.  This agreement can be completed electronically.
 
 If you're contributing to Breakpad as part of your employment with another organization, you'll need to sign a <a href=http://code.google.com/legal/corporate-cla-v1.0.html> Corporate Contributor License Agreement</a>.  Once completed this document will need to be faxed.
 
