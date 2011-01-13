@@ -61,6 +61,7 @@ All the client-side code is found by visiting the Google Project at http://code.
 
   * <a href="http://code.google.com/p/google-breakpad/wiki/WindowsClientIntegration">Windows Integration Guide</a>
   * <a href="http://code.google.com/p/google-breakpad/wiki/MacBreakpadStarterGuide">Mac Integration Guide</a>
+  * <a href="http://code.google.com/p/google-breakpad/wiki/LinuxStarterGuide"> Linux Integration Guide</a>
 
 == Build process specifics(symbol generation) ==
 
