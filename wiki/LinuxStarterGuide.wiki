@@ -67,8 +67,8 @@ $ mv test.sym ./symbols/test/6EDC6ACDB282125843FD59DA9C81BD830
 You may also find the <a href="http://mxr.mozilla.org/mozilla-central/source/toolkit/crashreporter/tools/symbolstore.py">symbolstore.py</a> script in the Mozilla repository useful, as it encapsulates these steps.
 
 == Processing the minidump to produce a stack trace ==
-Breakpad includes a tool called `minidump_stackwalk` which can take a minidump plus its corresponding text-format symbols and produce a symbolized stacktrace. It should be in the *google-breakpad/src* directory if you compiled the Breakpad source using the directions above. Simply pass it the minidump and the symbol path as commandline parameters:
+Breakpad includes a tool called `minidump_stackwalk` which can take a minidump plus its corresponding text-format symbols and produce a symbolized stacktrace. It should be in the *google-breakpad/src/processor* directory if you compiled the Breakpad source using the directions above. Simply pass it the minidump and the symbol path as commandline parameters:
 {{{
-google-breakpad/src/minidump_stackwalk minidump.dmp ./symbols
+google-breakpad/src/processor/minidump_stackwalk minidump.dmp ./symbols
 }}}
 It produces verbose output on stderr, and the stacktrace on stdout, so you may want to redirect stderr.
