@@ -40,6 +40,7 @@
 
 extern NSString *const kGoogleServerType;
 extern NSString *const kSocorroServerType;
+extern NSString *const kSofaServerType;
 extern NSString *const kDefaultServerType;
 
 // We're sublcassing NSTextField in order to override a particular
@@ -89,8 +90,8 @@ extern NSString *const kDefaultServerType;
   int configFile_;                         // File descriptor for config file
   NSMutableDictionary *parameters_;        // Key value pairs of data (STRONG)
   NSData *minidumpContents_;               // The data in the minidump (STRONG)
-  NSData *logFileData_;                    // An NSdata for the tar,
-                                           // bz2'd log file.
+  NSData *logFileData_;                    // An NSdata for the tar, bz2'd log
+	                                       // file, incl. symbolicated dump
   NSTimeInterval remainingDialogTime_;     // Keeps track of how long
                                            // we have until we cancel
                                            // the dialog
@@ -104,6 +105,7 @@ extern NSString *const kDefaultServerType;
                                            // Socorro.
   NSMutableDictionary *googleDictionary_;  // The dictionary for
                                            // Google.
+  NSMutableDictionary *sofaDictionary_;    // The dictionary for Sofa.
   NSMutableDictionary *extraServerVars_;   // A dictionary containing
                                            // extra key/value pairs
                                            // that are uploaded to the

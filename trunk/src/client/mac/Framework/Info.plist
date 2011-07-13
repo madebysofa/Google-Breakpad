@@ -22,5 +22,7 @@
 	<string>1.0</string>
 	<key>NSPrincipalClass</key>
 	<string></string>
+	<key>SFBreakpadVersion</key>
+	<string>0.3.2</string>
 </dict>
 </plist>

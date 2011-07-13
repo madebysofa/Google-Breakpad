@@ -63,8 +63,10 @@
   NSMutableData *data = [NSMutableData data];
   NSString *escaped =
     [name stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-  NSString *fmt = @"--%@\r\nContent-Disposition: form-data; name=\"%@\"; "
-    "filename=\"minidump.dmp\"\r\nContent-Type: application/octet-stream\r\n\r\n";
+
+  NSString *fmt;
+  fmt = @"--%@\r\nContent-Disposition: form-data; name=\"%@\"; "
+  "filename=\"minidump.dmp\"\r\nContent-Type: application/octet-stream\r\n\r\n";
   NSString *pre = [NSString stringWithFormat:fmt, boundary_, escaped];
   NSString *post = [NSString stringWithFormat:@"\r\n--%@--\r\n", boundary_];
 

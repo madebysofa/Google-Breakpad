@@ -33,6 +33,9 @@
 
 #import <Cocoa/Cocoa.h>
 #import <SystemConfiguration/SystemConfiguration.h>
+#import <Kernel/mach/host_info.h>
+#import <Kernel/mach/task.h>
+#import "mach/mach_host.h"
 
 #import "common/mac/HTTPMultipartUpload.h"
 
@@ -48,9 +51,83 @@ const int kEmailMaxLength = 64;
 #define kApplePrefsSyncExcludeAllKey \
   @"com.apple.PreferenceSync.ExcludeAllSyncKeys"
 
+// SOFA ADDITION
 NSString *const kGoogleServerType = @"google";
 NSString *const kSocorroServerType = @"socorro";
-NSString *const kDefaultServerType = @"google";
+NSString *const kSofaServerType = @"sofa";
+NSString *const kDefaultServerType = @"sofa";
+
+#pragma mark Memory Usage Collector
+
+// THIS IS A SOFA ADDITION
+
+@interface MemoryLogger : NSObject
+{
+}
+
+- (NSString *)memoryUsageWithProcessUsage:(unsigned int)theProcessMemoryUsage;
+
+@end
+
+@interface MemoryLogger ()
+
+- (NSString *)p_globalMemoryStats;
+- (NSString *)p_memoryStatsWithProcessUsage:(unsigned int)theProcessMemoryUsage;
+- (NSString *)p_descriptionOfMemory:(NSString *)theMemoryType pageCount:(size_t)thePageCount;
+@end
+
+@implementation MemoryLogger
+
+static inline NSString *formatFileSize(unsigned long theFileLength) {
+	if (theFileLength < 1024.0)
+		return [NSString stringWithFormat:@"%i bytes", theFileLength];
+	if (theFileLength < 1024.0 * 1024.0)
+		return [NSString stringWithFormat:@"%.1f KB", theFileLength / 1024.0];
+	if (theFileLength < 1024.0 * 1024.0 * 1024.0)
+		return [NSString stringWithFormat:@"%.1f MB", theFileLength / 1024.0 / 1024.0];
+	return [NSString stringWithFormat:@"%.2f GB", theFileLength / 1024.0 / 1024.0 / 1024.0];
+}
+
+- (NSString *)p_descriptionOfMemory:(NSString *)theMemoryType pageCount:(size_t)thePageCount;
+{
+	return [NSString stringWithFormat:@"%@ pages: %i (%@)\n", theMemoryType, thePageCount, formatFileSize(thePageCount * vm_page_size)];
+}
+
+- (NSString *)p_globalMemoryStats;
+{
+	vm_statistics_data_t    vmstat;
+	unsigned count = HOST_VM_INFO_COUNT;
+	kern_return_t ret = host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&vmstat, &count);
+	if (KERN_SUCCESS != ret)
+		return [NSString stringWithFormat:@"Unable to determine global memory usage from host_statistics(): %i", ret];
+	
+	NSMutableString *globalStats = [NSMutableString string];
+	[globalStats appendString:@"Global Memory Usage:\n"];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Free" pageCount:vmstat.free_count]];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Wired" pageCount:vmstat.wire_count]];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Active" pageCount:vmstat.active_count]];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Inactive" pageCount:vmstat.inactive_count]];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Page-ins" pageCount:vmstat.pageins]];
+	[globalStats appendString:[self p_descriptionOfMemory:@"Page-outs" pageCount:vmstat.pageouts]];
+	
+	return globalStats;
+}
+
+- (NSString *)p_memoryStatsWithProcessUsage:(unsigned int)theProcessMemoryUsage;
+{
+	return [NSString stringWithFormat:@"Real: %@", formatFileSize(theProcessMemoryUsage)];
+}
+
+- (NSString *)memoryUsageWithProcessUsage:(unsigned int)theProcessMemoryUsage;
+{
+	NSString *globalUsage = [self p_globalMemoryStats];
+	NSString *localUsage = [self p_memoryStatsWithProcessUsage:theProcessMemoryUsage];
+	
+	return [NSString stringWithFormat:@"%@\nThis Process:\n%@\n", globalUsage, localUsage];
+}
+
+@end
+
 
 #pragma mark -
 
@@ -254,6 +331,8 @@ NSString *const kDefaultServerType = @"google";
 // in their comments/email.
 - (void)controlTextDidBeginEditing:(NSNotification *)aNotification;
 
+- (void)report;
+
 @end
 
 @implementation Reporter
@@ -369,7 +448,7 @@ NSString *const kDefaultServerType = @"google";
   // generate a unique client ID based on this host's MAC address
   // then add a key/value pair for it
   NSString *clientID = [self clientID];
-  [parameters_ setObject:clientID forKey:@"guid"];
+  [parameters_ setObject:clientID forKey:@BREAKPAD_GUID];
 
   close(configFile_);
   configFile_ = -1;
@@ -400,9 +479,9 @@ NSString *const kDefaultServerType = @"google";
 
 //=============================================================================
 - (BOOL)readLogFileData {
-  unsigned int logFileCounter = 0;
 
-  NSString *logPath;
+  // Sofa change: used to be unsigned, but we needed signed to do this w/o rewriting too much
+  int logFileCounter = 0;
   int logFileTailSize = [[parameters_ objectForKey:@BREAKPAD_LOGFILE_UPLOAD_SIZE]
                           intValue];
 
@@ -412,54 +491,158 @@ NSString *const kDefaultServerType = @"google";
   char tmpDirTemplate[80] = "/tmp/CrashUpload-XXXXX";
   char *tmpDir = mkdtemp(tmpDirTemplate);
 
-  // Construct key names for the keys we expect to contain log file paths
+  BOOL tryDelLogFiles = NO;
+	
   for(logFileCounter = 0;; logFileCounter++) {
-    NSString *logFileKey = [NSString stringWithFormat:@"%@%d",
-                                     @BREAKPAD_LOGFILE_KEY_PREFIX,
-                                     logFileCounter];
-
-    logPath = [parameters_ objectForKey:logFileKey];
-
-    // They should all be consecutive, so if we don't find one, assume
-    // we're done
-
-    if (!logPath) {
-      break;
-    }
-
-    NSData *entireLogFile = [[NSData alloc] initWithContentsOfFile:logPath];
-
-    if (entireLogFile == nil) {
-      continue;
-    }
-
-    NSRange fileRange;
-
-    // Truncate the log file, only if necessary
-
-    if ([entireLogFile length] <= logFileTailSize) {
-      fileRange = NSMakeRange(0, [entireLogFile length]);
-    } else {
-      fileRange = NSMakeRange([entireLogFile length] - logFileTailSize,
-                              logFileTailSize);
-    }
-
-    char tmpFilenameTemplate[100];
-
-    // Generate a template based on the log filename
-    sprintf(tmpFilenameTemplate,"%s/%s-XXXX", tmpDir,
-            [[logPath lastPathComponent] fileSystemRepresentation]);
-
-    char *tmpFile = mktemp(tmpFilenameTemplate);
-
-    NSData *logSubdata = [entireLogFile subdataWithRange:fileRange];
-    NSString *tmpFileString = [NSString stringWithUTF8String:tmpFile];
-    [logSubdata writeToFile:tmpFileString atomically:NO];
-
-    [logFilenames addObject:[tmpFileString lastPathComponent]];
-    [entireLogFile release];
+	NSString *logFileKey = nil;
+	if (!tryDelLogFiles) {
+		logFileKey = [NSString stringWithFormat:@"%@%d",
+					  @BREAKPAD_LOGFILE_KEY_PREFIX,
+					  logFileCounter];
+	} else {
+		// iterate over our 'logfiles to delete when we're done with them'
+		logFileKey = [NSString stringWithFormat:@"%@%d",
+					  @BREAKPAD_DELLOGFILE_KEY_PREFIX,
+					  logFileCounter];
+	}
+		
+	NSString *logPath = [parameters_ objectForKey:logFileKey];
+	
+	// They should all be consecutive, so if we don't find one, assume
+	// we're done
+	if (!logPath) {
+		if (tryDelLogFiles) {
+			// we've iterated over all regular and to-del ones, done
+			break;			
+		} else {
+			// we've only iterated over all regular log files, now go for logs to delete
+			tryDelLogFiles = YES;
+			// need to go to -1, next iteration will increment to 0.
+			logFileCounter = -1;
+		}
+	} else {
+		// SOFA addition, expand tildes in log paths
+		if ([logPath hasPrefix:@"~"]) {
+			logPath = [logPath stringByExpandingTildeInPath];
+		}
+		
+		// Construct key names for the keys we expect to contain log file paths
+		NSData *entireLogFile = [[NSData alloc] initWithContentsOfFile:logPath];
+		
+		if (entireLogFile == nil) {
+			continue;
+		}
+		
+		NSRange fileRange;
+		
+		// Truncate the log file, only if necessary
+		
+		if ([entireLogFile length] <= logFileTailSize) {
+			fileRange = NSMakeRange(0, [entireLogFile length]);
+		} else {
+			fileRange = NSMakeRange([entireLogFile length] - logFileTailSize,
+									logFileTailSize);
+		}
+		
+		char tmpFilenameTemplate[5000];
+		
+		// Generate a template based on the log filename
+		sprintf(tmpFilenameTemplate,"%s/%s-XXXX", tmpDir,
+				[[logPath lastPathComponent] fileSystemRepresentation]);
+		
+		char *tmpFile = mktemp(tmpFilenameTemplate);
+		
+		NSData *logSubdata = [entireLogFile subdataWithRange:fileRange];
+		NSString *tmpFileString = [NSString stringWithUTF8String:tmpFile];
+		[logSubdata writeToFile:tmpFileString atomically:NO];
+		
+		[logFilenames addObject:[tmpFileString lastPathComponent]];
+		[entireLogFile release];
+		
+	}
   }
 
+  // SOFA ADDITION: Add stats about memory usage
+	char tmpFilenameTemplate[5000];
+	sprintf(tmpFilenameTemplate,"%s/memory_usage-XXXX", tmpDir);
+	char *tmpFile = mktemp(tmpFilenameTemplate);
+
+	unsigned int memoryUsage = (unsigned int)[[parameters_ objectForKey:@BREAKPAD_MEMORY_USAGE] longLongValue];
+	// If we write the NSString to disk immediately, OS X will also create metadata about the strings' encoding.
+	// This will then be stored in the tar below as a separate file, which will fail to parse on the server-side,
+	// which tries to convert everything to unicode from UTF-8. We work around that by converting the string to an
+	// NSData first.
+	NSData *memoryData = [[[[MemoryLogger alloc] init] memoryUsageWithProcessUsage:memoryUsage] dataUsingEncoding:NSUTF8StringEncoding];
+	NSString *tmpFileString = [NSString stringWithUTF8String:tmpFile];
+	if ([memoryData writeToFile:tmpFileString atomically:YES])
+		[logFilenames addObject:[tmpFileString lastPathComponent]];
+
+	
+  // now symbolicate dump and add
+ 
+   /*
+   
+   Note DS:
+   
+   Adding a pre-symbolicated report (Sofa addition)
+   ---
+   
+   Because:
+   (A) system library symbols differ from machine to machine, sometimes even within
+   the same OS build (because of a custom version for a machine, or installed security
+   updates),
+   (B) there's no good way to verify whether symbolication makes any sense, e.g.
+   incorrect symbols will result in incorrect symbolication, not necessarily an error
+   
+   , maintaining a symbol server ourselves is not an option.
+   
+   To get usable crashlogs, we pre-symbolicate the minidump on the client machine.
+   The minidump is still appended to prevent losing raw data that's not in the pretty
+   standard "apple crash report"-like report.
+
+   */
+
+  // get the minidump
+  NSString *minidumpDir = [parameters_ objectForKey:@kReporterMinidumpDirectoryKey];
+  NSString *minidumpID = [parameters_ objectForKey:@kReporterMinidumpIDKey];	  	  
+  NSString *minidumpPath = [minidumpDir stringByAppendingPathComponent:minidumpID];
+  minidumpPath = [minidumpPath stringByAppendingPathExtension:@"dmp"];
+  
+  // NSLog(@"a minidump exists for pre-symbolication: %i", [[NSFileManager defaultManager] fileExistsAtPath:minidumpPath]);
+	
+  if ([[NSFileManager defaultManager] fileExistsAtPath:minidumpPath]) {
+    // symbolicate it
+    NSTask *symbolicateTask = [[[NSTask alloc] init] autorelease];
+    
+    NSString *symbolicateToolPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"crash_report"];
+    
+    [symbolicateTask setLaunchPath:symbolicateToolPath];
+    [symbolicateTask setArguments:[NSArray arrayWithObjects:minidumpPath, nil]];
+    
+    // surpress stderr, crash_report is pretty chatty
+    NSPipe *anErrorPipe = [NSPipe pipe]; 
+    [symbolicateTask setStandardError:anErrorPipe];
+    
+    NSPipe *anOutputPipe = [NSPipe pipe];
+    [symbolicateTask setStandardOutput:anOutputPipe];
+    [symbolicateTask launch];
+    NSData *symbolicatedData = [[anOutputPipe fileHandleForReading] readDataToEndOfFile];
+    // may be superfluous
+    [symbolicateTask waitUntilExit];
+    
+    // write to file
+    char tmpFilenameTemplate[5000];
+    
+    // Generate a template based on the log filename
+    sprintf(tmpFilenameTemplate, "%s/%s-XXXX", tmpDir, [@"symbolicated.log" fileSystemRepresentation]);
+    char *tmpFile = mktemp(tmpFilenameTemplate);
+    NSString *tmpFilePathString = [NSString stringWithUTF8String:tmpFile];
+    
+    [symbolicatedData writeToFile:tmpFilePathString atomically:NO];
+    [logFilenames addObject:[tmpFilePathString lastPathComponent]];
+    // end symbolicate
+  }
+  
   if ([logFilenames count] == 0) {
     [logFilenames release];
     logFileData_ =  nil;
@@ -493,29 +676,61 @@ NSString *const kDefaultServerType = @"google";
 
 }
 
+- (NSString *)minidumpPath {
+	// SOFA ADDITION, added so we don't have to have this code in multiple places,
+	// we will also add functionality to always delete the minidump when we're done
+	// with it.
+	
+	// returns local path for minidump file, but only if it exists
+	NSString *minidumpDir = [parameters_ objectForKey:@kReporterMinidumpDirectoryKey];
+	NSString *minidumpID = [parameters_ objectForKey:@kReporterMinidumpIDKey];
+	
+	if ([minidumpID length]) {
+		NSString *path = [minidumpDir stringByAppendingPathComponent:minidumpID];
+		path = [path stringByAppendingPathExtension:@"dmp"];
+		
+		if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+			return path;
+		}
+	}
+	return nil;
+}
+
+- (void)deleteMinidump {
+	// delete minidump, if it exists
+	NSString * aMinidumpPath = [self minidumpPath];
+	if (aMinidumpPath) {
+		unlink([aMinidumpPath fileSystemRepresentation]);
+	}
+}
+
 //=============================================================================
 - (BOOL)readMinidumpData {
-  NSString *minidumpDir = [parameters_ objectForKey:@kReporterMinidumpDirectoryKey];
-  NSString *minidumpID = [parameters_ objectForKey:@kReporterMinidumpIDKey];
-
-  if (![minidumpID length])
+  // SOFA changes: use our new -minidumpPath method, and don't delete minidump
+  // if it's too big to upload.
+  NSString *aMinidumpPath = [self minidumpPath];
+  if (!aMinidumpPath) {
     return NO;
-
-  NSString *path = [minidumpDir stringByAppendingPathComponent:minidumpID];
-  path = [path stringByAppendingPathExtension:@"dmp"];
-
+  }
+  
   // check the size of the minidump and limit it to a reasonable size
   // before attempting to load into memory and upload
-  const char *fileName = [path fileSystemRepresentation];
+  const char *fileName = [aMinidumpPath fileSystemRepresentation];
   struct stat fileStatus;
 
   BOOL success = YES;
-
+  
+  // Sofa addition, we don't want to delete the file now if its too large,
+  // because we will still upload a pre-symbolicated report if we can't upload
+  // the minidump itself.
+  BOOL failBecauseOfSize = NO;
+	
   if (!stat(fileName, &fileStatus)) {
     if (fileStatus.st_size > kMinidumpFileLengthLimit) {
       fprintf(stderr, "Breakpad Reporter: minidump file too large " \
               "to upload : %d\n", (int)fileStatus.st_size);
       success = NO;
+      failBecauseOfSize = YES;
     }
   } else {
       fprintf(stderr, "Breakpad Reporter: unable to determine minidump " \
@@ -524,22 +739,24 @@ NSString *const kDefaultServerType = @"google";
   }
 
   if (success) {
-    minidumpContents_ = [[NSData alloc] initWithContentsOfFile:path];
+    minidumpContents_ = [[NSData alloc] initWithContentsOfFile:aMinidumpPath];
     success = ([minidumpContents_ length] ? YES : NO);
   }
 
-  if (!success) {
-    // something wrong with the minidump file -- delete it
-    unlink(fileName);
+  if (!success && !failBecauseOfSize) {
+    // something's wrong with the minidump file -- delete it,
+	// this is superfluous in some cases, but we remove the file here if there's
+	// trouble reading it, because we then don't want to try pre-symbolication
+	[self deleteMinidump];
   }
-
+	
   return success;
 }
 
 //=============================================================================
 - (BOOL)askUserPermissionToSend {
   // Initialize Cocoa, needed to display the alert
-  NSApplicationLoad();
+//  NSApplicationLoad();
 
   // Get the timeout value for the notification.
   NSTimeInterval timeout = [self messageTimeout];
@@ -551,7 +768,7 @@ NSString *const kDefaultServerType = @"google";
     if (!didLoadNib) {
       return NO;
     }
-
+	  
     [self configureAlertWindowIncludingEmail:[self shouldRequestEmail]];
 
     buttonPressed = [self runModalWindow:alertWindow_ withTimeout:timeout];
@@ -564,18 +781,30 @@ NSString *const kDefaultServerType = @"google";
       [parameters_ setObject:[self emailValue] forKey:@BREAKPAD_EMAIL];
     }
   } else {
-    // Create an alert panel to tell the user something happened
-    NSPanel* alert = NSGetAlertPanel([self shortDialogMessage],
-                                     [self explanatoryDialogText],
-                                     NSLocalizedString(@"sendReportButton", @""),
-                                     NSLocalizedString(@"cancelButton", @""),
-                                     nil);
-
-    // Pop the alert with an automatic timeout, and wait for the response
-    buttonPressed = [self runModalWindow:alert withTimeout:timeout];
-
-    // Release the panel memory
-    NSReleaseAlertPanel(alert);
+	  // Create an alert panel to tell the user something happened
+	  // SOFA addition, this used to be based around NSGetAlertPanel, we had to modernize to be able to setIcon on the NSAlert itself.
+	  NSAlert *anAlert = [NSAlert alertWithMessageText:[self shortDialogMessage]
+										 defaultButton:NSLocalizedString(@"sendReportButton", @"")
+									   alternateButton:NSLocalizedString(@"cancelButton", @"")
+										   otherButton:nil
+							 informativeTextWithFormat:[self explanatoryDialogText]];
+	  
+	  NSImage *aHostAppImage = [[NSWorkspace sharedWorkspace] iconForFile:[parameters_ objectForKey:@BREAKPAD_APP_PATH]];
+	  if (aHostAppImage) {
+		  // if we fail to get the host app's image, the alert will keep its default: NSApplicationIcon for crash_report_sender.
+		  
+		  // composit our little bug badge over the host app's image.
+		  NSImage *aCompositedImage = [[NSImage alloc] initWithSize:NSMakeSize(64.0, 64.0)];
+		  [aCompositedImage lockFocus];
+		  [aHostAppImage drawInRect:NSMakeRect(0,0,64.0,64.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+		  [[NSImage imageNamed:@"crash_report_badge"] drawInRect:NSMakeRect(0,0,64.0,64.0) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+		  [aCompositedImage unlockFocus];
+		  
+		  [anAlert setIcon:aCompositedImage];
+	  }
+	  
+	  [NSApp activateIgnoringOtherApps:YES];
+	  buttonPressed = [anAlert runModal];
   }
   return buttonPressed == NSAlertDefaultReturn;
 }
@@ -584,7 +813,7 @@ NSString *const kDefaultServerType = @"google";
   // Swap in localized values, making size adjustments to impacted elements as
   // we go. Remember that the origin is in the bottom left, so elements above
   // "fall" as text areas are shrunk from their overly-large IB sizes.
-
+  
   // Localize the header. No resizing needed, as it has plenty of room.
   [dialogTitle_ setStringValue:[self shortDialogMessage]];
 
@@ -664,9 +893,11 @@ NSString *const kDefaultServerType = @"google";
   [alertWindow_ makeFirstResponder:alertWindow_];
 
   [alertWindow_ orderOut:self];
+  [NSApp hide:sender];
   // Use NSAlertDefaultReturn so that the return value of |runModalWithWindow|
   // matches the AppKit function NSRunAlertPanel()
   [NSApp stopModalWithCode:NSAlertDefaultReturn];
+  // see -performSendAndQuit for what happens after this..
 }
 
 // UI Button Actions
@@ -743,6 +974,74 @@ doCommandBySelector:(SEL)commandSelector {
     [NSApp stopModal];
   }
 }
+
+// Sofa change: presenting the dialog if we need to, moved here from main.m
+
+- (void)applicationDidFinishLaunching:(NSNotification *)theNotification
+{
+	// only submit a report if we have not recently crashed in the past
+	BOOL shouldSubmitReport = [self reportIntervalElapsed];
+	BOOL okayToSend = NO;	
+	// ask user if we should send
+	if (shouldSubmitReport) {
+		if ([self shouldSubmitSilently]) {
+			GTMLoggerDebug(@"Skipping confirmation and sending report");
+			okayToSend = YES;
+		} else {
+			okayToSend = [self askUserPermissionToSend];
+		}
+	}
+	
+	if (okayToSend) {		
+		NSString *fullAppPath = [parameters_ objectForKey:@BREAKPAD_APP_PATH];
+		
+		[[NSWorkspace sharedWorkspace] launchApplication:fullAppPath];
+		[self performSelector:@selector(performSendAndQuit) withObject:nil afterDelay:0];
+ 	} else {
+		[NSApp terminate:self];
+	}
+
+}
+- (void)performSendAndQuit {
+	
+	BOOL shouldSubmitReport = YES;
+	BOOL okayToSend = YES;
+	
+	// If we're running as root, switch over to nobody
+	if (getuid() == 0 || geteuid() == 0) {
+		struct passwd *pw = getpwnam("nobody");
+		// If we can't get a non-root uid, don't send the report
+		if (!pw) {
+			GTMLoggerDebug(@"!pw - %s", strerror(errno));
+			exit(0);
+		}
+		if (setgid(pw->pw_gid) == -1) {
+			GTMLoggerDebug(@"setgid(pw->pw_gid) == -1 - %s", strerror(errno));
+			exit(0);
+		}
+		if (setuid(pw->pw_uid) == -1) {
+			GTMLoggerDebug(@"setuid(pw->pw_uid) == -1 - %s", strerror(errno));
+			exit(0);
+		}
+	}
+	else {
+		GTMLoggerDebug(@"getuid() !=0 || geteuid() != 0");
+	}
+	if (okayToSend && shouldSubmitReport) {
+		GTMLoggerDebug(@"Sending Report");
+		[self report];
+		GTMLoggerDebug(@"Report Sent!");
+	} else {
+		GTMLoggerDebug(@"Not sending crash report okayToSend=%d, "\
+					   "shouldSubmitReport=%d", okayToSend, shouldSubmitReport);
+	}
+	
+	GTMLoggerDebug(@"Exiting with no errors");
+	// Cleanup
+	[NSApp terminate:self];
+}
+
+
 
 
 
@@ -882,10 +1181,12 @@ doCommandBySelector:(SEL)commandSelector {
   serverDictionary_ = [[NSMutableDictionary alloc] init];
   socorroDictionary_ = [[NSMutableDictionary alloc] init];
   googleDictionary_ = [[NSMutableDictionary alloc] init];
+  sofaDictionary_ = [[NSMutableDictionary alloc] init];
   extraServerVars_ = [[NSMutableDictionary alloc] init];
 
   [serverDictionary_ setObject:socorroDictionary_ forKey:kSocorroServerType];
   [serverDictionary_ setObject:googleDictionary_ forKey:kGoogleServerType];
+  [serverDictionary_ setObject:sofaDictionary_ forKey:kSofaServerType];
 
   [googleDictionary_ setObject:@"ptime" forKey:@BREAKPAD_PROCESS_UP_TIME];
   [googleDictionary_ setObject:@"email" forKey:@BREAKPAD_EMAIL];
@@ -894,16 +1195,21 @@ doCommandBySelector:(SEL)commandSelector {
   [googleDictionary_ setObject:@"ver" forKey:@BREAKPAD_VERSION];
 
   [socorroDictionary_ setObject:@"Comments" forKey:@BREAKPAD_COMMENTS];
-  [socorroDictionary_ setObject:@"CrashTime"
-                         forKey:@BREAKPAD_PROCESS_CRASH_TIME];
-  [socorroDictionary_ setObject:@"StartupTime"
-                         forKey:@BREAKPAD_PROCESS_START_TIME];
-  [socorroDictionary_ setObject:@"Version"
-                         forKey:@BREAKPAD_VERSION];
-  [socorroDictionary_ setObject:@"ProductName"
-                         forKey:@BREAKPAD_PRODUCT];
-  [socorroDictionary_ setObject:@"Email"
-                         forKey:@BREAKPAD_EMAIL];
+  [socorroDictionary_ setObject:@"CrashTime" forKey:@BREAKPAD_PROCESS_CRASH_TIME];
+  [socorroDictionary_ setObject:@"StartupTime" forKey:@BREAKPAD_PROCESS_START_TIME];
+  [socorroDictionary_ setObject:@"Version" forKey:@BREAKPAD_VERSION];
+  [socorroDictionary_ setObject:@"ProductName" forKey:@BREAKPAD_PRODUCT];
+  [socorroDictionary_ setObject:@"Email" forKey:@BREAKPAD_EMAIL];
+	
+  [sofaDictionary_ setObject:@"BreakpadGUID" forKey:@"BreakpadGUID"];
+  [sofaDictionary_ setObject:@"Comments" forKey:@BREAKPAD_COMMENTS];
+  [sofaDictionary_ setObject:@"CrashTime" forKey:@BREAKPAD_PROCESS_CRASH_TIME];
+  [sofaDictionary_ setObject:@"StartupTime" forKey:@BREAKPAD_PROCESS_START_TIME];
+  [sofaDictionary_ setObject:@"Version" forKey:@BREAKPAD_VERSION];
+  [sofaDictionary_ setObject:@"Build" forKey:@BREAKPAD_BUILD];
+  [sofaDictionary_ setObject:@"ProductName" forKey:@BREAKPAD_PRODUCT];
+  [sofaDictionary_ setObject:@"Email" forKey:@BREAKPAD_EMAIL];
+  [sofaDictionary_ setObject:@"ReportUUID" forKey:@BREAKPAD_REPORT_UUID];
 }
 
 - (NSMutableDictionary *)dictionaryForServerType:(NSString *)serverType {
@@ -962,6 +1268,7 @@ doCommandBySelector:(SEL)commandSelector {
 
 //=============================================================================
 - (void)report {
+  // actually submit the report.
   NSURL *url = [NSURL URLWithString:[parameters_ objectForKey:@BREAKPAD_URL]];
   HTTPMultipartUpload *upload = [[HTTPMultipartUpload alloc] initWithURL:url];
   NSMutableDictionary *uploadParameters = [NSMutableDictionary dictionary];
@@ -992,7 +1299,8 @@ doCommandBySelector:(SEL)commandSelector {
     }
 
     // rename the minidump file according to the id returned from the server
-    NSString *minidumpDir = [parameters_ objectForKey:@kReporterMinidumpDirectoryKey];
+    
+	NSString *minidumpDir = [parameters_ objectForKey:@kReporterMinidumpDirectoryKey];
     NSString *minidumpID = [parameters_ objectForKey:@kReporterMinidumpIDKey];
 
     NSString *srcString = [NSString stringWithFormat:@"%@/%@.dmp",
@@ -1012,9 +1320,11 @@ doCommandBySelector:(SEL)commandSelector {
       GTMLoggerDebug(@"Breakpad Reporter: successful upload report ID = %s\n",
                      reportID );
     }
+	
+	   
     [result release];
   }
-
+	
   if (logFileData_) {
     HTTPMultipartUpload *logUpload = [[HTTPMultipartUpload alloc] initWithURL:url];
 
@@ -1031,6 +1341,30 @@ doCommandBySelector:(SEL)commandSelector {
   }
 
   [upload release];
+	
+  // delete any logFilesToDelete (SOFA addition), we do this here (and not earlier)
+  // because we want to keep these around until they're likely uploaded at least once.
+  for(unsigned int logFileCounter = 0;; logFileCounter++) {
+    NSString *logFileKey = nil;
+ 	// iterate over our 'logfiles to delete when we're done with them'
+	logFileKey = [NSString stringWithFormat:@"%@%d",
+				  @BREAKPAD_DELLOGFILE_KEY_PREFIX,
+				  logFileCounter];
+	
+	NSString *logPath = [parameters_ objectForKey:logFileKey];
+	
+	if (!logPath) {
+	  // no more logFilesToDelete in here
+	  break;
+	} else {
+  	  // SOFA addition, expand tildes in log paths
+	  if ([logPath hasPrefix:@"~"]) {
+		logPath = [logPath stringByExpandingTildeInPath];
+	  }
+	  // delete this log file (Note: 10.5 only call)
+	  [[NSFileManager defaultManager] removeItemAtPath:logPath error:nil];
+	}
+  }
 }
 
 //=============================================================================
@@ -1040,6 +1374,7 @@ doCommandBySelector:(SEL)commandSelector {
   [logFileData_ release];
   [googleDictionary_ release];
   [socorroDictionary_ release];
+  [sofaDictionary_ release];
   [serverDictionary_ release];
   [extraServerVars_ release];
   [super dealloc];
@@ -1121,6 +1456,8 @@ shouldChangeTextInRange:(NSRange)affectedCharRange
 //=============================================================================
 int main(int argc, const char *argv[]) {
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  // line solely to surpress unused variable pool warning:
+  pool;
 #if DEBUG
   // Log to stderr in debug builds.
   [GTMLogger setSharedLogger:[GTMLogger standardLoggerWithStderr]];
@@ -1153,7 +1490,7 @@ int main(int argc, const char *argv[]) {
   }
 
   Reporter *reporter = [[Reporter alloc] initWithConfigurationFD:configFile];
-
+	
   // Gather the configuration data
   if (![reporter readConfigurationData]) {
     GTMLoggerDebug(@"reporter readConfigurationData failed");
@@ -1163,59 +1500,43 @@ int main(int argc, const char *argv[]) {
   // Read the minidump into memory before we (potentially) switch from the
   // root user
   [reporter readMinidumpData];
-
+  // Read logs and pre-symbolicate minidump into a human-readable crashlog
   [reporter readLogFileData];
 
-  // only submit a report if we have not recently crashed in the past
-  BOOL shouldSubmitReport = [reporter reportIntervalElapsed];
-  BOOL okayToSend = NO;
+  // SOFA ADDITION: Get rid of the minidump file, we're done with it,
+  // original Breakpad implementation only deletes them if there's something
+  // wrong with them.
+  [reporter deleteMinidump];
+	
+  /*
+	 Dirk/Jon: There's an edge case here.
+	 
+	 If you try to delete host app while crash_report is running, and crash_report
+	 returns after that happened, it may not be able to actually correctly load 
+	 its resources, incl. NSLocalizedString (as seen on Klapy's computer).
+	 
+	 We may want to copy crash_report out of the app bundle before running it, because
+	 that's where Finder started choking, we may also want to see if we can move/copy the
+	 whole ReportSender out of the app bundle, as deleting/moving an app bundle shouldn't
+	 happen while running, but Finder won't warn you on moving host app, if app inside
+	 that bundle ./Frameworks/blah.. is still running.
+   
+	 This needs more research, but is postponed until we have clear steps to reproduce
+     and/or find out there's a real problem here that people actually run into.
+   
+	 (Deleting the app while reporting a crash sounds like something a tester would do
+	 not a user)
+   
+  */
+	
+  [reporter retain];
+  // Sofa change: start an app, so we can actually dismiss the modal panel later
 
-  // ask user if we should send
-  if (shouldSubmitReport) {
-    if ([reporter shouldSubmitSilently]) {
-      GTMLoggerDebug(@"Skipping confirmation and sending report");
-      okayToSend = YES;
-    } else {
-      okayToSend = [reporter askUserPermissionToSend];
-    }
-  }
+  [NSApplication sharedApplication];
+  [NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
+  [NSApp setDelegate:reporter];
+  [NSApp run];	
 
-  // If we're running as root, switch over to nobody
-  if (getuid() == 0 || geteuid() == 0) {
-    struct passwd *pw = getpwnam("nobody");
-
-    // If we can't get a non-root uid, don't send the report
-    if (!pw) {
-      GTMLoggerDebug(@"!pw - %s", strerror(errno));
-      exit(0);
-    }
-
-    if (setgid(pw->pw_gid) == -1) {
-      GTMLoggerDebug(@"setgid(pw->pw_gid) == -1 - %s", strerror(errno));
-      exit(0);
-    }
-
-    if (setuid(pw->pw_uid) == -1) {
-      GTMLoggerDebug(@"setuid(pw->pw_uid) == -1 - %s", strerror(errno));
-      exit(0);
-    }
-  }
-  else {
-     GTMLoggerDebug(@"getuid() !=0 || geteuid() != 0");
-  }
-
-  if (okayToSend && shouldSubmitReport) {
-    GTMLoggerDebug(@"Sending Report");
-    [reporter report];
-    GTMLoggerDebug(@"Report Sent!");
-  } else {
-    GTMLoggerDebug(@"Not sending crash report okayToSend=%d, "\
-                     "shouldSubmitReport=%d", okayToSend, shouldSubmitReport);
-  }
-
-  GTMLoggerDebug(@"Exiting with no errors");
-  // Cleanup
-  [reporter release];
-  [pool release];
-  return 0;
+  // we never get to this, here only to surpress warning
+  return 42;
 }

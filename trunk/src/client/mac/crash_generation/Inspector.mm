@@ -319,6 +319,11 @@ kern_return_t Inspector::ReadMessages() {
     printf("parameter count = %d\n", info.parameter_count);
 #endif
 
+	// SOFA ADDITION
+	// Store the memory usage of the crashed application
+	char const *memory = [[NSString stringWithFormat:@"%u", info.memory_usage] UTF8String];
+	config_params_.SetKeyValue(BREAKPAD_MEMORY_USAGE, memory);
+
     // In certain situations where multiple crash requests come
     // through quickly, we can end up with the mach IPC messages not
     // coming through correctly.  Since we don't know what parameters

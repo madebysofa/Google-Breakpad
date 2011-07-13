@@ -58,6 +58,7 @@ struct InspectorInfo {
   int           exception_code;
   int           exception_subcode;
   unsigned int  parameter_count;  // key-value pairs
+  unsigned int	memory_usage;
 };
 
 // Key/value message data to be sent to the Inspector

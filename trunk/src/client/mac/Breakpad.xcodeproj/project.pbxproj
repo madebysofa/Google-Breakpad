@@ -32,6 +32,9 @@
 		3329D4ED0FA16D820007BBC5 /* Breakpad.nib in Resources */ = {isa = PBXBuildFile; fileRef = 3329D4EC0FA16D820007BBC5 /* Breakpad.nib */; };
 		33880C800F9E097100817F82 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 33880C7E0F9E097100817F82 /* InfoPlist.strings */; };
 		4084699D0F5D9CF900FDCA37 /* crash_report_sender.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4084699C0F5D9CF900FDCA37 /* crash_report_sender.icns */; };
+		431C0DC111860F22000B4089 /* crash_report in Resources */ = {isa = PBXBuildFile; fileRef = 431C0DBF11860F1C000B4089 /* crash_report */; };
+		4351EDF41188AC9A00EB7362 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 4351EDF31188AC9A00EB7362 /* MainMenu.nib */; };
+		4383EF6C128C480000847E1B /* crash_report_badge.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4383EF6B128C480000847E1B /* crash_report_badge.icns */; };
 		8DC2EF570486A6940098B216 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7B1FEA5585E11CA2CBB /* Cocoa.framework */; };
 		F91AF5D00FD60393009D8BE2 /* BreakpadFramework_Test.mm in Sources */ = {isa = PBXBuildFile; fileRef = F91AF5CF0FD60393009D8BE2 /* BreakpadFramework_Test.mm */; };
 		F91AF6210FD60784009D8BE2 /* Breakpad.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8DC2EF5B0486A6940098B216 /* Breakpad.framework */; };
@@ -199,49 +202,49 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB87C101F949F00AA053B /* crash_report.xcodeproj */;
 			proxyType = 2;
-			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E /* crash_report */;
+			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E;
 			remoteInfo = crash_report;
 		};
 		F95BB891101F94AC00AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB889101F94AC00AA053B /* dump_syms.xcodeproj */;
 			proxyType = 2;
-			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E /* dump_syms */;
+			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E;
 			remoteInfo = dump_syms;
 		};
 		F95BB89E101F94C000AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB894101F94C000AA053B /* symupload.xcodeproj */;
 			proxyType = 2;
-			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E /* symupload */;
+			remoteGlobalIDString = 8DD76FA10486AA7600D96B5E;
 			remoteInfo = symupload;
 		};
 		F95BB8A0101F94C000AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB894101F94C000AA053B /* symupload.xcodeproj */;
 			proxyType = 2;
-			remoteGlobalIDString = 9BD835FB0B0544950055103E /* minidump_upload */;
+			remoteGlobalIDString = 9BD835FB0B0544950055103E;
 			remoteInfo = minidump_upload;
 		};
 		F95BB8B2101F94D300AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB889101F94AC00AA053B /* dump_syms.xcodeproj */;
 			proxyType = 1;
-			remoteGlobalIDString = 8DD76F960486AA7600D96B5E /* dump_syms */;
+			remoteGlobalIDString = 8DD76F960486AA7600D96B5E;
 			remoteInfo = dump_syms;
 		};
 		F95BB8B4101F94D300AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB894101F94C000AA053B /* symupload.xcodeproj */;
 			proxyType = 1;
-			remoteGlobalIDString = 8DD76F960486AA7600D96B5E /* symupload */;
+			remoteGlobalIDString = 8DD76F960486AA7600D96B5E;
 			remoteInfo = symupload;
 		};
 		F95BB8B6101F94D300AA053B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F95BB87C101F949F00AA053B /* crash_report.xcodeproj */;
 			proxyType = 1;
-			remoteGlobalIDString = 8DD76F960486AA7600D96B5E /* crash_report */;
+			remoteGlobalIDString = 8DD76F960486AA7600D96B5E;
 			remoteInfo = crash_report;
 		};
 		F9C44E190EF0790F003AEBAA /* PBXContainerItemProxy */ = {
@@ -282,6 +285,9 @@
 		3329D4EC0FA16D820007BBC5 /* Breakpad.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Breakpad.nib; path = sender/Breakpad.nib; sourceTree = "<group>"; };
 		33880C7F0F9E097100817F82 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = sender/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4084699C0F5D9CF900FDCA37 /* crash_report_sender.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = crash_report_sender.icns; path = sender/crash_report_sender.icns; sourceTree = "<group>"; };
+		431C0DBF11860F1C000B4089 /* crash_report */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = crash_report; sourceTree = "<group>"; };
+		4351EDF31188AC9A00EB7362 /* MainMenu.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = MainMenu.nib; path = sender/MainMenu.nib; sourceTree = "<group>"; };
+		4383EF6B128C480000847E1B /* crash_report_badge.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = crash_report_badge.icns; sourceTree = "<group>"; };
 		8DC2EF5B0486A6940098B216 /* Breakpad.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Breakpad.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F91AF5CF0FD60393009D8BE2 /* BreakpadFramework_Test.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = BreakpadFramework_Test.mm; path = tests/BreakpadFramework_Test.mm; sourceTree = "<group>"; };
 		F9286B380F7EB25800A4DCC8 /* Inspector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Inspector.h; path = crash_generation/Inspector.h; sourceTree = "<group>"; };
@@ -468,6 +474,7 @@
 				0867D69AFE84028FC02AAC07 /* Frameworks */,
 				034768DFFF38A50411DB9C8B /* Products */,
 				F9C77DDB0F7DD5CF0045F7DB /* UnitTests-Info.plist */,
+				4351EDF31188AC9A00EB7362 /* MainMenu.nib */,
 			);
 			name = Breakpad;
 			sourceTree = "<group>";
@@ -593,12 +600,14 @@
 		F92C56A60ECE04B6009BE4BA /* sender */ = {
 			isa = PBXGroup;
 			children = (
+				431C0DBF11860F1C000B4089 /* crash_report */,
 				F9B6309F100FF96B00D0F4AC /* goArrow.png */,
 				F92C56A70ECE04C5009BE4BA /* crash_report_sender.h */,
 				F92C56A80ECE04C5009BE4BA /* crash_report_sender.m */,
 				F945849C0F280E3C009A47BF /* Localizable.strings */,
 				33880C7E0F9E097100817F82 /* InfoPlist.strings */,
 				3329D4EC0FA16D820007BBC5 /* Breakpad.nib */,
+				4383EF6B128C480000847E1B /* crash_report_badge.icns */,
 				4084699C0F5D9CF900FDCA37 /* crash_report_sender.icns */,
 				F92C56A20ECE04A7009BE4BA /* crash_report_sender-Info.plist */,
 			);
@@ -868,7 +877,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB91B108733DA50010E9CD /* Build configuration list for PBXProject "Breakpad" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 0867D691FE84028FC02AAC07 /* Breakpad */;
 			productRefGroup = 034768DFFF38A50411DB9C8B /* Products */;
 			projectDirPath = "";
@@ -953,6 +969,9 @@
 				33880C800F9E097100817F82 /* InfoPlist.strings in Resources */,
 				3329D4ED0FA16D820007BBC5 /* Breakpad.nib in Resources */,
 				F9B630A0100FF96B00D0F4AC /* goArrow.png in Resources */,
+				431C0DC111860F22000B4089 /* crash_report in Resources */,
+				4351EDF41188AC9A00EB7362 /* MainMenu.nib in Resources */,
+				4383EF6C128C480000847E1B /* crash_report_badge.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1309,28 +1328,29 @@
 		1DEB91B208733DA50010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = i386;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH)";
+				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Debug;
 		};
 		1DEB91B308733DA50010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
+				ARCHS = i386;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "../..//**";
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Release;
 		};
@@ -1600,14 +1620,15 @@
 		F93DE3B90F830E7000608B94 /* Debug With Code Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = i386;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH)";
+				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = "Debug With Code Coverage";
 		};

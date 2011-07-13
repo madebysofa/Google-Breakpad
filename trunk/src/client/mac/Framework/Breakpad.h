@@ -64,6 +64,11 @@ extern "C" {
 #define BREAKPAD_PRODUCT               "BreakpadProduct"
 #define BREAKPAD_PRODUCT_DISPLAY       "BreakpadProductDisplay"
 #define BREAKPAD_VERSION               "BreakpadVersion"
+
+// Sofa addition
+#define BREAKPAD_BUILD                 "BreakpadBuild"
+#define BREAKPAD_APP_PATH              "BreakpadFullAppPath"
+	
 #define BREAKPAD_VENDOR                "BreakpadVendor"
 #define BREAKPAD_URL                   "BreakpadURL"
 #define BREAKPAD_REPORT_INTERVAL       "BreakpadReportInterval"
@@ -75,6 +80,7 @@ extern "C" {
 #define BREAKPAD_REPORTER_EXE_LOCATION \
   "BreakpadReporterExeLocation"
 #define BREAKPAD_LOGFILES              "BreakpadLogFiles"
+
 #define BREAKPAD_LOGFILE_UPLOAD_SIZE   "BreakpadLogFileTailSize"
 #define BREAKPAD_REQUEST_COMMENTS      "BreakpadRequestComments"
 #define BREAKPAD_COMMENTS              "BreakpadComments"
@@ -82,7 +88,7 @@ extern "C" {
 #define BREAKPAD_EMAIL                 "BreakpadEmail"
 #define BREAKPAD_SERVER_TYPE           "BreakpadServerType"
 #define BREAKPAD_SERVER_PARAMETER_DICT "BreakpadServerParameters"
-
+	
 // The keys below are NOT user supplied, and are used internally.
 #define BREAKPAD_PROCESS_START_TIME       "BreakpadProcStartTime"
 #define BREAKPAD_PROCESS_UP_TIME          "BreakpadProcessUpTime"
@@ -91,6 +97,13 @@ extern "C" {
 #define BREAKPAD_SERVER_PARAMETER_PREFIX  "BreakpadServerParameterPrefix_"
 #define BREAKPAD_ON_DEMAND                "BreakpadOnDemand"
 
+// Sofa additions
+#define BREAKPAD_REPORT_UUID              "BreakpadReportUUID" // uuid for one report
+#define BREAKPAD_GUID                     "BreakpadGUID" // uuid for the sender
+#define BREAKPAD_LOGFILES_TODELETE		  "BreakpadLogFilesToDelete"
+#define BREAKPAD_DELLOGFILE_KEY_PREFIX    "BreakpadAppDelLogFile"
+#define BREAKPAD_MEMORY_USAGE			  "BreakpadMemoryUsage"
+	
 // Optional user-defined function to dec to decide if we should handle
 // this crash or forward it along.
 // Return true if you want Breakpad to handle it.
@@ -190,6 +203,14 @@ typedef bool (*BreakpadFilterCallback)(int exception_type,
 //                                but pass as URL parameters when
 //                                uploading theminidump to the crash
 //                                server.
+
+// BREAKPAD_LOGFILES_TODELETE     Sofa addition. An array of log file paths
+//								  that should first be uploaded at crash time and
+//								  deleted when we are done with them.
+//
+// BREAKPAD_DELLOGFILE_KEY_PREFIX Sofa addition. Prefix for logfiles to delete, 
+//								  similar to BREAKPAD_LOGFILE_KEY_PREFIX
+	
 //=============================================================================
 // The BREAKPAD_PRODUCT, BREAKPAD_VERSION and BREAKPAD_URL are
 // required to have non-NULL values.  By default, the BREAKPAD_PRODUCT

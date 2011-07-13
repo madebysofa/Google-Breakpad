@@ -392,6 +392,10 @@ Breakpad::~Breakpad() {
 
 //=============================================================================
 bool Breakpad::ExtractParameters(NSDictionary *parameters) {
+	
+  // SOFA thinks: this code runs in the host app when Breakpad is initialized,
+  //	          so before it becomes unstable.
+	
   NSUserDefaults *stdDefaults = [NSUserDefaults standardUserDefaults];
   NSString *skipConfirm = [stdDefaults stringForKey:@BREAKPAD_SKIP_CONFIRM];
   NSString *sendAndExit = [stdDefaults stringForKey:@BREAKPAD_SEND_AND_EXIT];
@@ -399,7 +403,14 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
   NSString *serverType = [parameters objectForKey:@BREAKPAD_SERVER_TYPE];
   NSString *display = [parameters objectForKey:@BREAKPAD_PRODUCT_DISPLAY];
   NSString *product = [parameters objectForKey:@BREAKPAD_PRODUCT];
-  NSString *version = [parameters objectForKey:@BREAKPAD_VERSION];
+
+  // Sofa changes, we always want these two values, not one BREAKPAD_VERSION..
+  // NSString *version = [parameters objectForKey:@BREAKPAD_VERSION];
+  NSString *version = [parameters objectForKey:@"CFBundleShortVersionString"];
+  NSString *buildNumber = [parameters objectForKey:@"CFBundleVersion"];
+  // Sofa addition, full path to application
+  NSString *fullAppPath;	
+
   NSString *urlStr = [parameters objectForKey:@BREAKPAD_URL];
   NSString *interval = [parameters objectForKey:@BREAKPAD_REPORT_INTERVAL];
   NSString *inspectorPathString =
@@ -408,6 +419,7 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
                 [parameters objectForKey:@BREAKPAD_REPORTER_EXE_LOCATION];
   NSString *timeout = [parameters objectForKey:@BREAKPAD_CONFIRM_TIMEOUT];
   NSArray  *logFilePaths = [parameters objectForKey:@BREAKPAD_LOGFILES];
+  NSArray  *logFileToDeletePaths = [parameters objectForKey:@BREAKPAD_LOGFILES_TODELETE];
   NSString *logFileTailSize = [parameters objectForKey:@BREAKPAD_LOGFILE_UPLOAD_SIZE];
   NSString *requestUserText =
                 [parameters objectForKey:@BREAKPAD_REQUEST_COMMENTS];
@@ -444,7 +456,7 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
     timeout = @"300";
 
   if (!logFileTailSize)
-    logFileTailSize = @"200000";
+    logFileTailSize = @"20000";
 
   if (!vendor) {
     vendor = @"Vendor not specified";
@@ -515,7 +527,10 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
       [resourcePath stringByAppendingPathComponent:@"crash_report_sender.app"];
     reporterPathString = [[NSBundle bundleWithPath:reporterPathString] executablePath];
   }
-
+	
+  // Find host app. might be nice right? (test if this actually works before NSApplicationMain)
+  fullAppPath = [[NSBundle mainBundle] bundlePath];
+	
   // Verify that there is a Reporter application.
   if (![[NSFileManager defaultManager]
              fileExistsAtPath:reporterPathString]) {
@@ -553,6 +568,8 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
   dictionary.SetKeyValue(BREAKPAD_PRODUCT_DISPLAY, [display UTF8String]);
   dictionary.SetKeyValue(BREAKPAD_PRODUCT,         [product UTF8String]);
   dictionary.SetKeyValue(BREAKPAD_VERSION,         [version UTF8String]);
+  dictionary.SetKeyValue(BREAKPAD_BUILD,           [buildNumber UTF8String]);
+  dictionary.SetKeyValue(BREAKPAD_APP_PATH,        [fullAppPath UTF8String]);
   dictionary.SetKeyValue(BREAKPAD_URL,             [urlStr UTF8String]);
   dictionary.SetKeyValue(BREAKPAD_REPORT_INTERVAL, [interval UTF8String]);
   dictionary.SetKeyValue(BREAKPAD_SKIP_CONFIRM,    [skipConfirm UTF8String]);
@@ -570,6 +587,14 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
   dictionary.SetKeyValue(BREAKPAD_DUMP_DIRECTORY,
                          [dumpSubdirectory UTF8String]);
   
+  // add uuid for this crash (Sofa addition)
+  CFUUIDRef anUuid = CFUUIDCreate(kCFAllocatorDefault);
+  NSString *anUuidString = (NSString *)CFUUIDCreateString(kCFAllocatorDefault, anUuid);
+  CFRelease(anUuid);
+	
+  dictionary.SetKeyValue(BREAKPAD_REPORT_UUID, [anUuidString UTF8String]);
+  [anUuidString release];
+  
   struct timeval tv;
   gettimeofday(&tv, NULL);
   char timeStartedString[32];
@@ -578,15 +603,26 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
                          timeStartedString);
 
   if (logFilePaths) {
-    char logFileKey[255];
-    for(unsigned int i = 0; i < [logFilePaths count]; i++) {
-      sprintf(logFileKey,"%s%d", BREAKPAD_LOGFILE_KEY_PREFIX, i);
-      dictionary.SetKeyValue(logFileKey,
-                             [[logFilePaths objectAtIndex:i]
-                               fileSystemRepresentation]);
-    }
+	char logFileKey[255];
+	for(unsigned int i = 0; i < [logFilePaths count]; i++) {
+		sprintf(logFileKey,"%s%d", BREAKPAD_LOGFILE_KEY_PREFIX, i);
+		dictionary.SetKeyValue(logFileKey,
+							   [[logFilePaths objectAtIndex:i]
+								fileSystemRepresentation]);
+	}
   }
 
+  // Sofa Addition
+  if (logFileToDeletePaths) {
+	char logFileKey[255];
+	for(unsigned int i = 0; i < [logFileToDeletePaths count]; i++) {
+		sprintf(logFileKey,"%s%d", BREAKPAD_DELLOGFILE_KEY_PREFIX, i);
+		dictionary.SetKeyValue(logFileKey,
+							   [[logFileToDeletePaths objectAtIndex:i]
+								fileSystemRepresentation]);
+	}
+  }
+	
   if (serverParameters) {
     // For each key-value pair, call BreakpadAddUploadParameter()
     NSEnumerator *keyEnumerator = [serverParameters keyEnumerator];
@@ -632,6 +668,17 @@ void        Breakpad::GenerateAndSendReport() {
   config_params_->SetKeyValue(BREAKPAD_ON_DEMAND, "NO");
 }
 
+static unsigned int realMemoryUsage() {
+	struct task_basic_info t_info;
+	mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+
+	kern_return_t ret = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count);
+	if (KERN_SUCCESS != ret)
+	 return 0;
+
+	return t_info.resident_size;
+}
+
 //=============================================================================
 bool Breakpad::HandleException(int           exception_type,
                                int           exception_code,
@@ -673,6 +720,7 @@ bool Breakpad::HandleException(int           exception_type,
   info.exception_code = exception_code;
   info.exception_subcode = exception_subcode;
   info.parameter_count = config_params_->GetCount();
+  info.memory_usage = realMemoryUsage();
   message.SetData(&info, sizeof(info));
 
   MachPortSender sender(inspector_.GetServicePort());
