@@ -195,7 +195,7 @@
 		F9C44DBD0EF072A0003AEBAA /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = F9C44DBA0EF072A0003AEBAA /* MainMenu.xib */; };
 		F9C44E000EF077CD003AEBAA /* Breakpad.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8DC2EF5B0486A6940098B216 /* Breakpad.framework */; };
 		F9C44E3C0EF08B12003AEBAA /* Breakpad.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 8DC2EF5B0486A6940098B216 /* Breakpad.framework */; };
-		F9C44E980EF09F56003AEBAA /* crash_report_sender.app in Resources */ = {isa = PBXBuildFile; fileRef = F92C56A00ECE04A7009BE4BA /* crash_report_sender.app */; };
+		F9C44E980EF09F56003AEBAA /* crash-report-sender.app in Resources */ = {isa = PBXBuildFile; fileRef = F92C56A00ECE04A7009BE4BA /* crash-report-sender.app */; };
 		F9C44EA20EF09F93003AEBAA /* HTTPMultipartUpload.m in Sources */ = {isa = PBXBuildFile; fileRef = F92C53770ECCE635009BE4BA /* HTTPMultipartUpload.m */; };
 		F9C44EE50EF0A006003AEBAA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9C44EE40EF0A006003AEBAA /* SystemConfiguration.framework */; };
 		F9C44EE90EF0A3C1003AEBAA /* GTMLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = F9C44EE80EF0A3C1003AEBAA /* GTMLogger.m */; };
@@ -651,7 +651,7 @@
 		F92C56310ECD0DF1009BE4BA /* OnDemandServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OnDemandServer.h; path = Framework/OnDemandServer.h; sourceTree = "<group>"; };
 		F92C56320ECD0DF1009BE4BA /* OnDemandServer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = OnDemandServer.mm; path = Framework/OnDemandServer.mm; sourceTree = "<group>"; };
 		F92C563C0ECD10B3009BE4BA /* breakpadUtilities.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = breakpadUtilities.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		F92C56A00ECE04A7009BE4BA /* crash_report_sender.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = crash_report_sender.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F92C56A00ECE04A7009BE4BA /* crash-report-sender.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "crash-report-sender.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F92C56A20ECE04A7009BE4BA /* crash_report_sender-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "crash_report_sender-Info.plist"; path = "sender/crash_report_sender-Info.plist"; sourceTree = "<group>"; };
 		F92C56A70ECE04C5009BE4BA /* crash_report_sender.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = crash_report_sender.h; path = sender/crash_report_sender.h; sourceTree = "<group>"; };
 		F92C56A80ECE04C5009BE4BA /* crash_report_sender.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = crash_report_sender.m; path = sender/crash_report_sender.m; sourceTree = "<group>"; };
@@ -813,7 +813,7 @@
 				8DC2EF5B0486A6940098B216 /* Breakpad.framework */,
 				F92C53540ECCE349009BE4BA /* Inspector */,
 				F92C563C0ECD10B3009BE4BA /* breakpadUtilities.dylib */,
-				F92C56A00ECE04A7009BE4BA /* crash_report_sender.app */,
+				F92C56A00ECE04A7009BE4BA /* crash-report-sender.app */,
 				F9C44DA50EF060A8003AEBAA /* BreakpadTest.app */,
 				F9C77DDA0F7DD5CF0045F7DB /* UnitTests.octest */,
 				F93803BE0F80820F004D428B /* generator_test */,
@@ -1255,7 +1255,7 @@
 			);
 			name = crash_report_sender;
 			productName = crash_report_sender;
-			productReference = F92C56A00ECE04A7009BE4BA /* crash_report_sender.app */;
+			productReference = F92C56A00ECE04A7009BE4BA /* crash-report-sender.app */;
 			productType = "com.apple.product-type.application";
 		};
 		F93803BD0F80820F004D428B /* generator_test */ = {
@@ -1535,7 +1535,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F9C44E980EF09F56003AEBAA /* crash_report_sender.app in Resources */,
+				F9C44E980EF09F56003AEBAA /* crash-report-sender.app in Resources */,
 				F92C568A0ECD15F9009BE4BA /* Inspector in Resources */,
 				F92C56650ECD1185009BE4BA /* breakpadUtilities.dylib in Resources */,
 			);
@@ -2268,7 +2268,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = ../..;
 				INFOPLIST_FILE = "sender/crash_report_sender-Info.plist";
-				PRODUCT_NAME = crash_report_sender;
+				PRODUCT_NAME = "crash-report-sender";
 			};
 			name = Debug;
 		};
@@ -2277,7 +2277,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = ../..;
 				INFOPLIST_FILE = "sender/crash_report_sender-Info.plist";
-				PRODUCT_NAME = crash_report_sender;
+				PRODUCT_NAME = "crash-report-sender";
 			};
 			name = Release;
 		};
@@ -2417,7 +2417,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = ../..;
 				INFOPLIST_FILE = "sender/crash_report_sender-Info.plist";
-				PRODUCT_NAME = crash_report_sender;
+				PRODUCT_NAME = "crash-report-sender";
 			};
 			name = "Debug With Code Coverage";
 		};
