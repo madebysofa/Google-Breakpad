@@ -37,7 +37,7 @@
 #define PROCESSOR_RANGE_MAP_INL_H__
 
 
-#include <cassert>
+#include <assert.h>
 
 #include "processor/range_map.h"
 #include "processor/logging.h"
@@ -184,7 +184,7 @@ bool RangeMap<AddressType, EntryType>::RetrieveRangeAtIndex(
 
   *entry = iterator->second.entry();
   if (entry_base)
-    *entry_base = iterator->first;
+    *entry_base = iterator->second.base();
   if (entry_size)
     *entry_size = iterator->first - iterator->second.base() + 1;
 

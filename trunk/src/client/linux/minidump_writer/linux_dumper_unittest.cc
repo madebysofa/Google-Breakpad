@@ -27,30 +27,47 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <string>
+
+#include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdint.h>
+#include <sys/mman.h>
+#include <sys/poll.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "breakpad_googletest_includes.h"
 #include "client/linux/minidump_writer/linux_dumper.h"
+#include "common/linux/eintr_wrapper.h"
 #include "common/linux/file_id.h"
-#include "common/linux/memory.h"
+#include "common/memory.h"
 
+using std::string;
 using namespace google_breakpad;
-
-// This provides a wrapper around system calls which may be
-// interrupted by a signal and return EINTR. See man 7 signal.
-#define HANDLE_EINTR(x) ({ \
-  typeof(x) __eintr_result__; \
-  do { \
-    __eintr_result__ = x; \
-  } while (__eintr_result__ == -1 && errno == EINTR); \
-  __eintr_result__;\
-})
 
 namespace {
 typedef testing::Test LinuxDumperTest;
+
+string GetHelperBinary() {
+  // Locate helper binary next to the current binary.
+  char self_path[PATH_MAX];
+  if (readlink("/proc/self/exe", self_path, sizeof(self_path) - 1) == -1) {
+    return "";
+  }
+  string helper_path(self_path);
+  size_t pos = helper_path.rfind('/');
+  if (pos == string::npos) {
+    return "";
+  }
+  helper_path.erase(pos + 1);
+  helper_path += "linux_dumper_unittest_helper";
+
+  return helper_path;
+}
+
 }
 
 TEST(LinuxDumperTest, Setup) {
@@ -80,44 +97,144 @@ TEST(LinuxDumperTest, ThreadList) {
   }
 }
 
+// Helper stack class to close a file descriptor and unmap
+// a mmap'ed mapping.
+class StackHelper {
+public:
+  StackHelper(int fd, char* mapping, size_t size)
+    : fd_(fd), mapping_(mapping), size_(size) {}
+  ~StackHelper() {
+    munmap(mapping_, size_);
+    close(fd_);
+  }
+
+private:
+  int fd_;
+  char* mapping_;
+  size_t size_;
+};
+
+TEST(LinuxDumperTest, MergedMappings) {
+  string helper_path(GetHelperBinary());
+  if (helper_path.empty()) {
+    FAIL() << "Couldn't find helper binary";
+    exit(1);
+  }
+
+  // mmap two segments out of the helper binary, one
+  // enclosed in the other, but with different protections.
+  const size_t kPageSize = sysconf(_SC_PAGESIZE);
+  const size_t kMappingSize = 3 * kPageSize;
+  int fd = open(helper_path.c_str(), O_RDONLY);
+  ASSERT_NE(-1, fd);
+  char* mapping =
+    reinterpret_cast<char*>(mmap(NULL,
+                                 kMappingSize,
+                                 PROT_READ,
+                                 MAP_SHARED,
+                                 fd,
+                                 0));
+  ASSERT_TRUE(mapping);
+
+  const u_int64_t kMappingAddress = reinterpret_cast<u_int64_t>(mapping);
+
+  // Ensure that things get cleaned up.
+  StackHelper helper(fd, mapping, kMappingSize);
+
+  // Carve a page out of the first mapping with different permissions.
+  char* inside_mapping =  reinterpret_cast<char*>(mmap(mapping + 2 *kPageSize,
+                                 kPageSize,
+                                 PROT_NONE,
+                                 MAP_SHARED | MAP_FIXED,
+                                 fd,
+                                 // Map a different offset just to
+                                 // better test real-world conditions.
+                                 kPageSize));
+  ASSERT_TRUE(inside_mapping);
+
+  // Now check that LinuxDumper interpreted the mappings properly.
+  LinuxDumper dumper(getpid());
+  ASSERT_TRUE(dumper.Init());
+  int mapping_count = 0;
+  for (unsigned i = 0; i < dumper.mappings().size(); ++i) {
+    const MappingInfo& mapping = *dumper.mappings()[i];
+    if (strcmp(mapping.name, helper_path.c_str()) == 0) {
+      // This mapping should encompass the entire original mapped
+      // range.
+      EXPECT_EQ(kMappingAddress, mapping.start_addr);
+      EXPECT_EQ(kMappingSize, mapping.size);
+      EXPECT_EQ(0, mapping.offset);
+      mapping_count++;
+    }
+  }
+  EXPECT_EQ(1, mapping_count);
+}
+
 TEST(LinuxDumperTest, VerifyStackReadWithMultipleThreads) {
   static const int kNumberOfThreadsInHelperProgram = 5;
   char kNumberOfThreadsArgument[2];
   sprintf(kNumberOfThreadsArgument, "%d", kNumberOfThreadsInHelperProgram);
 
+  int fds[2];
+  ASSERT_NE(-1, pipe(fds));
+
   pid_t child_pid = fork();
   if (child_pid == 0) {
-    // Set the number of threads
-    execl("src/client/linux/linux_dumper_unittest_helper",
+    // In child process.
+    close(fds[0]);
+
+    string helper_path(GetHelperBinary());
+    if (helper_path.empty()) {
+      FAIL() << "Couldn't find helper binary";
+      exit(1);
+    }
+
+    // Pass the pipe fd and the number of threads as arguments.
+    char pipe_fd_string[8];
+    sprintf(pipe_fd_string, "%d", fds[1]);
+    execl(helper_path.c_str(),
           "linux_dumper_unittest_helper",
+          pipe_fd_string,
           kNumberOfThreadsArgument,
           NULL);
     // Kill if we get here.
     printf("Errno from exec: %d", errno);
-    FAIL() << "Exec failed: " << strerror(errno);
+    FAIL() << "Exec of " << helper_path << " failed: " << strerror(errno);
     exit(0);
   }
-  // The sleep is flaky, but prevents us from reading
-  // the child process before all threads have been created.
-  sleep(1);
+  close(fds[1]);
+  // Wait for the child process to signal that it's ready.
+  struct pollfd pfd;
+  memset(&pfd, 0, sizeof(pfd));
+  pfd.fd = fds[0];
+  pfd.events = POLLIN | POLLERR;
+
+  const int r = HANDLE_EINTR(poll(&pfd, 1, 1000));
+  ASSERT_EQ(1, r);
+  ASSERT_TRUE(pfd.revents & POLLIN);
+  uint8_t junk;
+  read(fds[0], &junk, sizeof(junk));
+  close(fds[0]);
+
+  // Child is ready now.
   LinuxDumper dumper(child_pid);
-  EXPECT_TRUE(dumper.Init());
+  ASSERT_TRUE(dumper.Init());
   EXPECT_EQ((size_t)kNumberOfThreadsInHelperProgram, dumper.threads().size());
   EXPECT_TRUE(dumper.ThreadsSuspend());
 
   ThreadInfo one_thread;
   for(size_t i = 0; i < dumper.threads().size(); ++i) {
     EXPECT_TRUE(dumper.ThreadInfoGet(dumper.threads()[i], &one_thread));
-    // We know the threads are in a function which has allocated exactly
-    // one word off the stack to store its thread id.
+    // In the helper program, we stored a pointer to the thread id in a
+    // specific register. Check that we can recover its value.
 #if defined(__ARM_EABI__)
-    void* process_tid_location = (void *)(one_thread.regs.uregs[11] - 8);
+    pid_t *process_tid_location = (pid_t *)(one_thread.regs.uregs[3]);
 #elif defined(__i386)
-    void* process_tid_location = (void *)(one_thread.regs.ebp - 4);
+    pid_t *process_tid_location = (pid_t *)(one_thread.regs.ecx);
 #elif defined(__x86_64)
-    void* process_tid_location = (void *)(one_thread.regs.rbp - 4);
+    pid_t *process_tid_location = (pid_t *)(one_thread.regs.rcx);
 #else
-#error Platform not supported!
+#error This test has not been ported to this platform.
 #endif
     pid_t one_thread_id;
     dumper.CopyFromProcess(&one_thread_id,
@@ -159,6 +276,7 @@ TEST(LinuxDumperTest, BuildProcPath) {
 }
 
 #if !defined(__ARM_EABI__)
+// Ensure that the linux-gate VDSO is included in the mapping list.
 TEST(LinuxDumperTest, MappingsIncludeLinuxGate) {
   LinuxDumper dumper(getpid());
   ASSERT_TRUE(dumper.Init());
@@ -180,6 +298,80 @@ TEST(LinuxDumperTest, MappingsIncludeLinuxGate) {
   EXPECT_EQ(linux_gate_loc, reinterpret_cast<void*>(mapping->start_addr));
   EXPECT_EQ(0, memcmp(linux_gate_loc, ELFMAG, SELFMAG));
 }
+
+// Ensure that the linux-gate VDSO can generate a non-zeroed File ID.
+TEST(LinuxDumperTest, LinuxGateMappingID) {
+  LinuxDumper dumper(getpid());
+  ASSERT_TRUE(dumper.Init());
+
+  bool found_linux_gate = false;
+  const wasteful_vector<MappingInfo*> mappings = dumper.mappings();
+  unsigned index = 0;
+  for (unsigned i = 0; i < mappings.size(); ++i) {
+    if (!strcmp(mappings[i]->name, kLinuxGateLibraryName)) {
+      found_linux_gate = true;
+      index = i;
+      break;
+    }
+  }
+  ASSERT_TRUE(found_linux_gate);
+
+  uint8_t identifier[sizeof(MDGUID)];
+  ASSERT_TRUE(dumper.ElfFileIdentifierForMapping(*mappings[index],
+                                                 true,
+                                                 index,
+                                                 identifier));
+  uint8_t empty_identifier[sizeof(MDGUID)];
+  memset(empty_identifier, 0, sizeof(empty_identifier));
+  EXPECT_NE(0, memcmp(empty_identifier, identifier, sizeof(identifier)));
+}
+
+// Ensure that the linux-gate VDSO can generate a non-zeroed File ID
+// from a child process.
+TEST(LinuxDumperTest, LinuxGateMappingIDChild) {
+  int fds[2];
+  ASSERT_NE(-1, pipe(fds));
+
+  // Fork a child so ptrace works.
+  const pid_t child = fork();
+  if (child == 0) {
+    close(fds[1]);
+    // Now wait forever for the parent.
+    char b;
+    HANDLE_EINTR(read(fds[0], &b, sizeof(b)));
+    close(fds[0]);
+    syscall(__NR_exit);
+  }
+  close(fds[0]);
+
+  LinuxDumper dumper(child);
+  ASSERT_TRUE(dumper.Init());
+
+  bool found_linux_gate = false;
+  const wasteful_vector<MappingInfo*> mappings = dumper.mappings();
+  unsigned index = 0;
+  for (unsigned i = 0; i < mappings.size(); ++i) {
+    if (!strcmp(mappings[i]->name, kLinuxGateLibraryName)) {
+      found_linux_gate = true;
+      index = i;
+      break;
+    }
+  }
+  ASSERT_TRUE(found_linux_gate);
+
+  // Need to suspend the child so ptrace actually works.
+  ASSERT_TRUE(dumper.ThreadsSuspend());
+  uint8_t identifier[sizeof(MDGUID)];
+  ASSERT_TRUE(dumper.ElfFileIdentifierForMapping(*mappings[index],
+                                                 true,
+                                                 index,
+                                                 identifier));
+  uint8_t empty_identifier[sizeof(MDGUID)];
+  memset(empty_identifier, 0, sizeof(empty_identifier));
+  EXPECT_NE(0, memcmp(empty_identifier, identifier, sizeof(identifier)));
+  EXPECT_TRUE(dumper.ThreadsResume());
+  close(fds[1]);
+}
 #endif
 
 TEST(LinuxDumperTest, FileIDsMatch) {
@@ -194,11 +386,11 @@ TEST(LinuxDumperTest, FileIDsMatch) {
   int fds[2];
   ASSERT_NE(-1, pipe(fds));
 
-  // fork a child so we can ptrace it
+  // Fork a child so ptrace works.
   const pid_t child = fork();
   if (child == 0) {
     close(fds[1]);
-    // now wait forever for the parent
+    // Now wait forever for the parent.
     char b;
     HANDLE_EINTR(read(fds[0], &b, sizeof(b)));
     close(fds[0]);
@@ -222,7 +414,8 @@ TEST(LinuxDumperTest, FileIDsMatch) {
 
   uint8_t identifier1[sizeof(MDGUID)];
   uint8_t identifier2[sizeof(MDGUID)];
-  EXPECT_TRUE(dumper.ElfFileIdentifierForMapping(i, identifier1));
+  EXPECT_TRUE(dumper.ElfFileIdentifierForMapping(*mappings[i], true, i,
+                                                 identifier1));
   FileID fileid(exe_name);
   EXPECT_TRUE(fileid.ElfFileIdentifier(identifier2));
   char identifier_string1[37];

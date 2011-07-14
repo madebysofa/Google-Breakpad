@@ -39,11 +39,12 @@
 #ifndef PROCESSOR_POSTFIX_EVALUATOR_INL_H__
 #define PROCESSOR_POSTFIX_EVALUATOR_INL_H__
 
+#include "processor/postfix_evaluator.h"
 
-#include <cstdio>
+#include <stdio.h>
+
 #include <sstream>
 
-#include "processor/postfix_evaluator.h"
 #include "google_breakpad/processor/memory_region.h"
 #include "processor/logging.h"
 
@@ -99,7 +100,8 @@ bool PostfixEvaluator<ValueType>::EvaluateInternal(
 
     if (operation != BINARY_OP_NONE) {
       // Get the operands.
-      ValueType operand1, operand2;
+      ValueType operand1 = ValueType();
+      ValueType operand2 = ValueType();
       if (!PopValues(&operand1, &operand2)) {
         BPLOG(ERROR) << "Could not PopValues to get two values for binary "
                         "operation " << token << ": " << expression;
@@ -161,8 +163,8 @@ bool PostfixEvaluator<ValueType>::EvaluateInternal(
       // = for assignment.
       ValueType value;
       if (!PopValue(&value)) {
-        BPLOG(ERROR) << "Could not PopValue to get value to assign: " <<
-                        expression;
+        BPLOG(INFO) << "Could not PopValue to get value to assign: " <<
+                       expression;
         return false;
       }
 
@@ -211,7 +213,7 @@ bool PostfixEvaluator<ValueType>::Evaluate(const string &expression,
   // and successful.
   if (stack_.empty())
     return true;
-    
+
   BPLOG(ERROR) << "Incomplete execution: " << expression;
   return false;
 }
@@ -230,7 +232,7 @@ bool PostfixEvaluator<ValueType>::EvaluateForValue(const string &expression,
     BPLOG(ERROR) << "Expression yielded bad number of results: "
                  << "'" << expression << "'";
     return false;
-  } 
+  }
 
   return PopValue(result);
 }
@@ -256,7 +258,7 @@ PostfixEvaluator<ValueType>::PopValueOrIdentifier(
   // '-' sign (6.0.13); others do not (6.0.9). Since we require it, we
   // handle it explicitly here.
   istringstream token_stream(token);
-  ValueType literal;
+  ValueType literal = ValueType();
   bool negative;
   if (token_stream.peek() == '-') {
     negative = true;
@@ -282,7 +284,7 @@ PostfixEvaluator<ValueType>::PopValueOrIdentifier(
 
 template<typename ValueType>
 bool PostfixEvaluator<ValueType>::PopValue(ValueType *value) {
-  ValueType literal;
+  ValueType literal = ValueType();
   string token;
   PopResult result;
   if ((result = PopValueOrIdentifier(&literal, &token)) == POP_RESULT_FAIL) {
@@ -298,7 +300,7 @@ bool PostfixEvaluator<ValueType>::PopValue(ValueType *value) {
     if (iterator == dictionary_->end()) {
       // The identifier wasn't found in the dictionary.  Don't imply any
       // default value, just fail.
-      BPLOG(ERROR) << "Identifier " << token << " not in dictionary";
+      BPLOG(INFO) << "Identifier " << token << " not in dictionary";
       return false;
     }
 

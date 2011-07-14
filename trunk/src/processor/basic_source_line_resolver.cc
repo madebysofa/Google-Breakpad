@@ -26,6 +26,12 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// basic_source_line_resolver.cc: BasicSourceLineResolver implementation.
+//
+// See basic_source_line_resolver.h and basic_source_line_resolver_types.h
+// for documentation.
+
 
 #include <stdio.h>
 #include <string.h>
@@ -37,17 +43,11 @@
 #include <utility>
 #include <vector>
 
-#include "processor/address_map-inl.h"
-#include "processor/contained_range_map-inl.h"
-#include "processor/range_map-inl.h"
-
 #include "google_breakpad/processor/basic_source_line_resolver.h"
-#include "google_breakpad/processor/code_module.h"
-#include "google_breakpad/processor/stack_frame.h"
-#include "processor/linked_ptr.h"
-#include "processor/scoped_ptr.h"
-#include "processor/windows_frame_info.h"
-#include "processor/cfi_frame_info.h"
+#include "processor/basic_source_line_resolver_types.h"
+#include "processor/module_factory.h"
+
+#include "processor/tokenize.h"
 
 using std::map;
 using std::vector;
@@ -55,304 +55,30 @@ using std::make_pair;
 
 namespace google_breakpad {
 
-struct BasicSourceLineResolver::Line {
-  Line(MemAddr addr, MemAddr code_size, int file_id, int source_line)
-      : address(addr)
-      , size(code_size)
-      , source_file_id(file_id)
-      , line(source_line) { }
+static const char *kWhitespace = " \r\n";
 
-  MemAddr address;
-  MemAddr size;
-  int source_file_id;
-  int line;
-};
+BasicSourceLineResolver::BasicSourceLineResolver() :
+    SourceLineResolverBase(new BasicModuleFactory) { }
 
-struct BasicSourceLineResolver::Function {
-  Function(const string &function_name,
-           MemAddr function_address,
-           MemAddr code_size,
-           int set_parameter_size)
-      : name(function_name), address(function_address), size(code_size),
-        parameter_size(set_parameter_size) { }
-
-  string name;
-  MemAddr address;
-  MemAddr size;
-
-  // The size of parameters passed to this function on the stack.
-  int parameter_size;
-
-  RangeMap< MemAddr, linked_ptr<Line> > lines;
-};
-
-struct BasicSourceLineResolver::PublicSymbol {
-  PublicSymbol(const string& set_name,
-               MemAddr set_address,
-               int set_parameter_size)
-      : name(set_name),
-        address(set_address),
-        parameter_size(set_parameter_size) {}
-
-  string name;
-  MemAddr address;
-
-  // If the public symbol is used as a function entry point, parameter_size
-  // is set to the size of the parameters passed to the funciton on the
-  // stack, if known.
-  int parameter_size;
-};
-
-class BasicSourceLineResolver::Module {
- public:
-  Module(const string &name) : name_(name) { }
-
-  // Loads the given map file, returning true on success.  Reads the
-  // map file into memory and calls LoadMapFromBuffer
-  bool LoadMap(const string &map_file);
-
-  // Loads a map from the given buffer, returning true on success
-  bool LoadMapFromBuffer(const string &map_buffer);
-
-  // Looks up the given relative address, and fills the StackFrame struct
-  // with the result.
-  void LookupAddress(StackFrame *frame) const;
-
-  // If Windows stack walking information is available covering ADDRESS,
-  // return a WindowsFrameInfo structure describing it. If the information
-  // is not available, returns NULL. A NULL return value does not indicate
-  // an error. The caller takes ownership of any returned WindowsFrameInfo
-  // object.
-  WindowsFrameInfo *FindWindowsFrameInfo(const StackFrame *frame) const;
-
-  // If CFI stack walking information is available covering ADDRESS,
-  // return a CFIFrameInfo structure describing it. If the information
-  // is not available, return NULL. The caller takes ownership of any
-  // returned CFIFrameInfo object.
-  CFIFrameInfo *FindCFIFrameInfo(const StackFrame *frame) const;
-
- private:
-  friend class BasicSourceLineResolver;
-  typedef map<int, string> FileMap;
-
-  // The types for windows_frame_info_.  This is equivalent to MS DIA's
-  // StackFrameTypeEnum.  Each identifies a different type of frame
-  // information, although all are represented in the symbol file in the
-  // same format.  These are used as indices to the windows_frame_info_ array.
-  enum WindowsFrameInfoTypes {
-    WINDOWS_FRAME_INFO_FPO = 0,
-    WINDOWS_FRAME_INFO_TRAP,  // not used here
-    WINDOWS_FRAME_INFO_TSS,   // not used here
-    WINDOWS_FRAME_INFO_STANDARD,
-    WINDOWS_FRAME_INFO_FRAME_DATA,
-    WINDOWS_FRAME_INFO_LAST,  // must be the last sequentially-numbered item
-    WINDOWS_FRAME_INFO_UNKNOWN = -1
-  };
-
-  // Splits line into at most max_tokens space-separated tokens, placing
-  // them in the tokens vector.  line is a 0-terminated string that
-  // optionally ends with a newline character or combination, which will
-  // be removed.  line must not contain any embedded '\n' or '\r' characters.
-  // If more tokens than max_tokens are present, the final token is placed
-  // into the vector without splitting it up at all.  This modifies line as
-  // a side effect.  Returns true if exactly max_tokens tokens are returned,
-  // and false if fewer are returned.  This is not considered a failure of
-  // Tokenize, but may be treated as a failure if the caller expects an
-  // exact, as opposed to maximum, number of tokens.
-  static bool Tokenize(char *line, int max_tokens, vector<char*> *tokens);
-
-  // Parses a file declaration
-  bool ParseFile(char *file_line);
-
-  // Parses a function declaration, returning a new Function object.
-  Function* ParseFunction(char *function_line);
-
-  // Parses a line declaration, returning a new Line object.
-  Line* ParseLine(char *line_line);
-
-  // Parses a PUBLIC symbol declaration, storing it in public_symbols_.
-  // Returns false if an error occurs.
-  bool ParsePublicSymbol(char *public_line);
-
-  // Parses a STACK WIN or STACK CFI frame info declaration, storing
-  // it in the appropriate table.
-  bool ParseStackInfo(char *stack_info_line);
-
-  // Parses a STACK WIN record, storing it in windows_frame_info_.
-  bool ParseWindowsFrameInfo(char *stack_info_line);
-
-  // Parses a STACK CFI record, storing it in cfi_frame_info_.
-  bool ParseCFIFrameInfo(char *stack_info_line);
-
-  // Parse RULE_SET, a series of rules of the sort appearing in STACK
-  // CFI records, and store the given rules in FRAME_INFO.
-  bool ParseCFIRuleSet(const string &rule_set, CFIFrameInfo *frame_info) const;
-
-  string name_;
-  FileMap files_;
-  RangeMap< MemAddr, linked_ptr<Function> > functions_;
-  AddressMap< MemAddr, linked_ptr<PublicSymbol> > public_symbols_;
-
-  // Each element in the array is a ContainedRangeMap for a type
-  // listed in WindowsFrameInfoTypes. These are split by type because
-  // there may be overlaps between maps of different types, but some
-  // information is only available as certain types.
-  ContainedRangeMap< MemAddr, linked_ptr<WindowsFrameInfo> >
-      windows_frame_info_[WINDOWS_FRAME_INFO_LAST];
-
-  // DWARF CFI stack walking data. The Module stores the initial rule sets
-  // and rule deltas as strings, just as they appear in the symbol file:
-  // although the file may contain hundreds of thousands of STACK CFI
-  // records, walking a stack will only ever use a few of them, so it's
-  // best to delay parsing a record until it's actually needed.
-
-  // STACK CFI INIT records: for each range, an initial set of register
-  // recovery rules. The RangeMap's itself gives the starting and ending
-  // addresses.
-  RangeMap<MemAddr, string> cfi_initial_rules_;
-
-  // STACK CFI records: at a given address, the changes to the register
-  // recovery rules that take effect at that address. The map key is the
-  // starting address; the ending address is the key of the next entry in
-  // this map, or the end of the range as given by the cfi_initial_rules_
-  // entry (which FindCFIFrameInfo looks up first).
-  map<MemAddr, string> cfi_delta_rules_;
-};
-
-BasicSourceLineResolver::BasicSourceLineResolver() : modules_(new ModuleMap) {
-}
-
-BasicSourceLineResolver::~BasicSourceLineResolver() {
-  ModuleMap::iterator it;
-  for (it = modules_->begin(); it != modules_->end(); ++it) {
-    delete it->second;
-  }
-  delete modules_;
-}
-
-bool BasicSourceLineResolver::LoadModule(const string &module_name,
-                                         const string &map_file) {
-  // Make sure we don't already have a module with the given name.
-  if (modules_->find(module_name) != modules_->end()) {
-    BPLOG(INFO) << "Symbols for module " << module_name << " already loaded";
-    return false;
-  }
-
-  BPLOG(INFO) << "Loading symbols for module " << module_name << " from " <<
-                 map_file;
-
-  Module *module = new Module(module_name);
-  if (!module->LoadMap(map_file)) {
-    delete module;
-    return false;
-  }
-
-  modules_->insert(make_pair(module_name, module));
-  return true;
-}
-
-bool BasicSourceLineResolver::LoadModuleUsingMapBuffer(
-    const string &module_name,
-    const string &map_buffer) {
-  // Make sure we don't already have a module with the given name.
-  if (modules_->find(module_name) != modules_->end()) {
-    BPLOG(INFO) << "Symbols for module " << module_name << " already loaded";
-    return false;
-  }
-
-  BPLOG(INFO) << "Loading symbols for module " << module_name << " from buffer";
-
-  Module *module = new Module(module_name);
-  if (!module->LoadMapFromBuffer(map_buffer)) {
-    delete module;
-    return false;
-  }
-
-  modules_->insert(make_pair(module_name, module));
-  return true;
-}
-
-bool BasicSourceLineResolver::HasModule(const string &module_name) const {
-  return modules_->find(module_name) != modules_->end();
-}
-
-void BasicSourceLineResolver::FillSourceLineInfo(StackFrame *frame) const {
-  if (frame->module) {
-    ModuleMap::const_iterator it = modules_->find(frame->module->code_file());
-    if (it != modules_->end()) {
-      it->second->LookupAddress(frame);
-    }
-  }
-}
-
-WindowsFrameInfo *BasicSourceLineResolver::FindWindowsFrameInfo(
-    const StackFrame *frame) const {
-  if (frame->module) {
-    ModuleMap::const_iterator it = modules_->find(frame->module->code_file());
-    if (it != modules_->end()) {
-      return it->second->FindWindowsFrameInfo(frame);
-    }
-  }
-  return NULL;
-}
-
-CFIFrameInfo *BasicSourceLineResolver::FindCFIFrameInfo(
-    const StackFrame *frame) const {
-  if (frame->module) {
-    ModuleMap::const_iterator it = modules_->find(frame->module->code_file());
-    if (it != modules_->end()) {
-      return it->second->FindCFIFrameInfo(frame);
-    }
-  }
-  return NULL;
-}
-
-class AutoFileCloser {
- public:
-  AutoFileCloser(FILE *file) : file_(file) {}
-  ~AutoFileCloser() {
-    if (file_)
-      fclose(file_);
-  }
-
- private:
-  FILE *file_;
-};
-
-bool BasicSourceLineResolver::Module::LoadMapFromBuffer(
-    const string &map_buffer) {
+bool BasicSourceLineResolver::Module::LoadMapFromMemory(char *memory_buffer) {
   linked_ptr<Function> cur_func;
   int line_number = 0;
-  const char *map_buffer_c_str = map_buffer.c_str();
   char *save_ptr;
-
-  // set up our input buffer as a c-style string so we
-  // can we use strtok()
-  // have to copy because modifying the result of string::c_str is not
-  // permitted
-  size_t map_buffer_length = strlen(map_buffer_c_str);
+  size_t map_buffer_length = strlen(memory_buffer);
 
   // If the length is 0, we can still pretend we have a symbol file. This is
-  // for scenarios that want to test symbol lookup, but don't necessarily care if
-  // certain modules do not have any information, like system libraries.
+  // for scenarios that want to test symbol lookup, but don't necessarily care
+  // if certain modules do not have any information, like system libraries.
   if (map_buffer_length == 0) {
     return true;
   }
 
-  scoped_array<char> map_buffer_chars(new char[map_buffer_length]);
-  if (map_buffer_chars == NULL) {
-    BPLOG(ERROR) << "Memory allocation of " << map_buffer_length <<
-        " bytes failed";
-    return false;
+  if (memory_buffer[map_buffer_length - 1] == '\n') {
+    memory_buffer[map_buffer_length - 1] = '\0';
   }
 
-  strncpy(map_buffer_chars.get(), map_buffer_c_str, map_buffer_length);
-
-  if (map_buffer_chars[map_buffer_length - 1] == '\n') {
-    map_buffer_chars[map_buffer_length - 1] = '\0';
-  }
   char *buffer;
-  buffer = strtok_r(map_buffer_chars.get(), "\r\n", &save_ptr);
+  buffer = strtok_r(memory_buffer, "\r\n", &save_ptr);
 
   while (buffer != NULL) {
     ++line_number;
@@ -396,6 +122,10 @@ bool BasicSourceLineResolver::Module::LoadMapFromBuffer(
       // be accessed by a SymbolSupplier.
       //
       // MODULE <guid> <age> <filename>
+    } else if (strncmp(buffer, "INFO ", 5) == 0) {
+      // Ignore these as well, they're similarly just for housekeeping.
+      //
+      // INFO CODE_ID <code id> <filename>
     } else {
       if (!cur_func.get()) {
         BPLOG(ERROR) << "Found source line data without a function at " <<
@@ -411,66 +141,9 @@ bool BasicSourceLineResolver::Module::LoadMapFromBuffer(
       cur_func->lines.StoreRange(line->address, line->size,
                                  linked_ptr<Line>(line));
     }
-
     buffer = strtok_r(NULL, "\r\n", &save_ptr);
   }
-
   return true;
-}
-
-bool BasicSourceLineResolver::Module::LoadMap(const string &map_file) {
-  struct stat buf;
-  int error_code = stat(map_file.c_str(), &buf);
-  if (error_code == -1) {
-    string error_string;
-    int error_code = ErrnoString(&error_string);
-    BPLOG(ERROR) << "Could not open " << map_file <<
-        ", error " << error_code << ": " << error_string;
-    return false;
-  }
-
-  off_t file_size = buf.st_size;
-
-  // Allocate memory for file contents, plus a null terminator
-  // since we'll use strtok() on the contents.
-  char *file_buffer = new char[sizeof(char)*file_size + 1];
-
-  if (file_buffer == NULL) {
-    BPLOG(ERROR) << "Could not allocate memory for " << map_file;
-    return false;
-  }
-
-  BPLOG(INFO) << "Opening " << map_file;
-
-  FILE *f = fopen(map_file.c_str(), "rt");
-  if (!f) {
-    string error_string;
-    int error_code = ErrnoString(&error_string);
-    BPLOG(ERROR) << "Could not open " << map_file <<
-        ", error " << error_code << ": " << error_string;
-    delete [] file_buffer;
-    return false;
-  }
-
-  AutoFileCloser closer(f);
-
-  int items_read = 0;
-
-  items_read = fread(file_buffer, 1, file_size, f);
-
-  if (items_read != file_size) {
-    string error_string;
-    int error_code = ErrnoString(&error_string);
-    BPLOG(ERROR) << "Could not slurp " << map_file <<
-        ", error " << error_code << ": " << error_string;
-    delete [] file_buffer;
-    return false;
-  }
-  file_buffer[file_size] = '\0';
-  string map_buffer(file_buffer);
-  delete [] file_buffer;
-
-  return LoadMapFromBuffer(map_buffer);
 }
 
 void BasicSourceLineResolver::Module::LookupAddress(StackFrame *frame) const {
@@ -516,15 +189,16 @@ WindowsFrameInfo *BasicSourceLineResolver::Module::FindWindowsFrameInfo(
   MemAddr address = frame->instruction - frame->module->base_address();
   scoped_ptr<WindowsFrameInfo> result(new WindowsFrameInfo());
 
-  // We only know about WINDOWS_FRAME_INFO_FRAME_DATA and
-  // WINDOWS_FRAME_INFO_FPO. Prefer them in this order.
-  // WINDOWS_FRAME_INFO_FRAME_DATA is the newer type that includes its
-  // own program string. WINDOWS_FRAME_INFO_FPO is the older type
+  // We only know about WindowsFrameInfo::STACK_INFO_FRAME_DATA and
+  // WindowsFrameInfo::STACK_INFO_FPO. Prefer them in this order.
+  // WindowsFrameInfo::STACK_INFO_FRAME_DATA is the newer type that
+  // includes its own program string.
+  // WindowsFrameInfo::STACK_INFO_FPO is the older type
   // corresponding to the FPO_DATA struct. See stackwalker_x86.cc.
   linked_ptr<WindowsFrameInfo> frame_info;
-  if ((windows_frame_info_[WINDOWS_FRAME_INFO_FRAME_DATA]
+  if ((windows_frame_info_[WindowsFrameInfo::STACK_INFO_FRAME_DATA]
        .RetrieveRange(address, &frame_info))
-      || (windows_frame_info_[WINDOWS_FRAME_INFO_FPO]
+      || (windows_frame_info_[WindowsFrameInfo::STACK_INFO_FPO]
           .RetrieveRange(address, &frame_info))) {
     result->CopyFrom(*frame_info.get());
     return result.release();
@@ -540,7 +214,7 @@ WindowsFrameInfo *BasicSourceLineResolver::Module::FindWindowsFrameInfo(
   linked_ptr<Function> function;
   MemAddr function_base, function_size;
   if (functions_.RetrieveNearestRange(address, &function,
-                                      &function_base, &function_size) && 
+                                      &function_base, &function_size) &&
       address >= function_base && address - function_base < function_size) {
     result->parameter_size = function->parameter_size;
     result->valid |= WindowsFrameInfo::VALID_PARAMETER_SIZE;
@@ -555,7 +229,7 @@ WindowsFrameInfo *BasicSourceLineResolver::Module::FindWindowsFrameInfo(
       (!function.get() || public_address > function_base)) {
     result->parameter_size = public_symbol->parameter_size;
   }
-  
+
   return NULL;
 }
 
@@ -593,47 +267,12 @@ CFIFrameInfo *BasicSourceLineResolver::Module::FindCFIFrameInfo(
   return rules.release();
 }
 
-bool BasicSourceLineResolver::Module::ParseCFIRuleSet(
-    const string &rule_set, CFIFrameInfo *frame_info) const {
-  CFIFrameInfoParseHandler handler(frame_info);
-  CFIRuleParser parser(&handler);
-  return parser.Parse(rule_set);
-}
-
-// static
-bool BasicSourceLineResolver::Module::Tokenize(char *line, int max_tokens,
-                                               vector<char*> *tokens) {
-  tokens->clear();
-  tokens->reserve(max_tokens);
-
-  int remaining = max_tokens;
-
-  // Split tokens on the space character.  Look for newlines too to
-  // strip them out before exhausting max_tokens.
-  char *save_ptr;
-  char *token = strtok_r(line, " \r\n", &save_ptr);
-  while (token && --remaining > 0) {
-    tokens->push_back(token);
-    if (remaining > 1)
-      token = strtok_r(NULL, " \r\n", &save_ptr);
-  }
-
-  // If there's anything left, just add it as a single token.
-  if (!remaining > 0) {
-    if ((token = strtok_r(NULL, "\r\n", &save_ptr))) {
-      tokens->push_back(token);
-    }
-  }
-
-  return tokens->size() == static_cast<unsigned int>(max_tokens);
-}
-
 bool BasicSourceLineResolver::Module::ParseFile(char *file_line) {
   // FILE <id> <filename>
   file_line += 5;  // skip prefix
 
   vector<char*> tokens;
-  if (!Tokenize(file_line, 2, &tokens)) {
+  if (!Tokenize(file_line, kWhitespace, 2, &tokens)) {
     return false;
   }
 
@@ -657,7 +296,7 @@ BasicSourceLineResolver::Module::ParseFunction(char *function_line) {
   function_line += 5;  // skip prefix
 
   vector<char*> tokens;
-  if (!Tokenize(function_line, 4, &tokens)) {
+  if (!Tokenize(function_line, kWhitespace, 4, &tokens)) {
     return NULL;
   }
 
@@ -673,7 +312,7 @@ BasicSourceLineResolver::Line* BasicSourceLineResolver::Module::ParseLine(
     char *line_line) {
   // <address> <line number> <source file id>
   vector<char*> tokens;
-  if (!Tokenize(line_line, 4, &tokens)) {
+  if (!Tokenize(line_line, kWhitespace, 4, &tokens)) {
     return NULL;
   }
 
@@ -695,7 +334,7 @@ bool BasicSourceLineResolver::Module::ParsePublicSymbol(char *public_line) {
   public_line += 7;
 
   vector<char*> tokens;
-  if (!Tokenize(public_line, 3, &tokens)) {
+  if (!Tokenize(public_line, kWhitespace, 3, &tokens)) {
     return false;
   }
 
@@ -727,87 +366,51 @@ bool BasicSourceLineResolver::Module::ParseStackInfo(char *stack_info_line) {
   while (*stack_info_line == ' ')
     stack_info_line++;
   const char *platform = stack_info_line;
-  while (!strchr(" \r\n", *stack_info_line))
+  while (!strchr(kWhitespace, *stack_info_line))
     stack_info_line++;
   *stack_info_line++ = '\0';
 
   // MSVC stack frame info.
-  if (strcmp(platform, "WIN") == 0)
-    return ParseWindowsFrameInfo(stack_info_line);
+  if (strcmp(platform, "WIN") == 0) {
+    int type = 0;
+    u_int64_t rva, code_size;
+    linked_ptr<WindowsFrameInfo>
+      stack_frame_info(WindowsFrameInfo::ParseFromString(stack_info_line,
+                                                         type,
+                                                         rva,
+                                                         code_size));
+    if (stack_frame_info == NULL)
+      return false;
 
-  // DWARF CFI stack frame info
-  else if (strcmp(platform, "CFI") == 0)
+    // TODO(mmentovai): I wanted to use StoreRange's return value as this
+    // method's return value, but MSVC infrequently outputs stack info that
+    // violates the containment rules.  This happens with a section of code
+    // in strncpy_s in test_app.cc (testdata/minidump2).  There, problem looks
+    // like this:
+    //   STACK WIN 4 4242 1a a 0 ...  (STACK WIN 4 base size prolog 0 ...)
+    //   STACK WIN 4 4243 2e 9 0 ...
+    // ContainedRangeMap treats these two blocks as conflicting.  In reality,
+    // when the prolog lengths are taken into account, the actual code of
+    // these blocks doesn't conflict.  However, we can't take the prolog lengths
+    // into account directly here because we'd wind up with a different set
+    // of range conflicts when MSVC outputs stack info like this:
+    //   STACK WIN 4 1040 73 33 0 ...
+    //   STACK WIN 4 105a 59 19 0 ...
+    // because in both of these entries, the beginning of the code after the
+    // prolog is at 0x1073, and the last byte of contained code is at 0x10b2.
+    // Perhaps we could get away with storing ranges by rva + prolog_size
+    // if ContainedRangeMap were modified to allow replacement of
+    // already-stored values.
+
+    windows_frame_info_[type].StoreRange(rva, code_size, stack_frame_info);
+    return true;
+  } else if (strcmp(platform, "CFI") == 0) {
+    // DWARF CFI stack frame info
     return ParseCFIFrameInfo(stack_info_line);
-
-  // Something unrecognized.
-  else
-    return false;
-}
-
-bool BasicSourceLineResolver::Module::ParseWindowsFrameInfo(
-    char *stack_info_line) {
-  // The format of a STACK WIN record is documented at: 
-  //
-  // http://code.google.com/p/google-breakpad/wiki/SymbolFiles
-
-  vector<char*> tokens;
-  if (!Tokenize(stack_info_line, 11, &tokens))
-    return false;
-
-  int type = strtol(tokens[0], NULL, 16);
-  if (type < 0 || type > WINDOWS_FRAME_INFO_LAST - 1)
-    return false;
-
-  u_int64_t rva                 = strtoull(tokens[1], NULL, 16);
-  u_int64_t code_size           = strtoull(tokens[2], NULL, 16);
-  u_int32_t prolog_size         =  strtoul(tokens[3], NULL, 16);
-  u_int32_t epilog_size         =  strtoul(tokens[4], NULL, 16);
-  u_int32_t parameter_size      =  strtoul(tokens[5], NULL, 16);
-  u_int32_t saved_register_size =  strtoul(tokens[6], NULL, 16);
-  u_int32_t local_size          =  strtoul(tokens[7], NULL, 16);
-  u_int32_t max_stack_size      =  strtoul(tokens[8], NULL, 16);
-  int has_program_string        =  strtoul(tokens[9], NULL, 16);
-
-  const char *program_string = "";
-  int allocates_base_pointer = 0;
-  if (has_program_string) {
-    program_string = tokens[10];
   } else {
-    allocates_base_pointer = strtoul(tokens[10], NULL, 16);
+    // Something unrecognized.
+    return false;
   }
-
-  // TODO(mmentovai): I wanted to use StoreRange's return value as this
-  // method's return value, but MSVC infrequently outputs stack info that
-  // violates the containment rules.  This happens with a section of code
-  // in strncpy_s in test_app.cc (testdata/minidump2).  There, problem looks
-  // like this:
-  //   STACK WIN 4 4242 1a a 0 ...  (STACK WIN 4 base size prolog 0 ...)
-  //   STACK WIN 4 4243 2e 9 0 ...
-  // ContainedRangeMap treats these two blocks as conflicting.  In reality,
-  // when the prolog lengths are taken into account, the actual code of
-  // these blocks doesn't conflict.  However, we can't take the prolog lengths
-  // into account directly here because we'd wind up with a different set
-  // of range conflicts when MSVC outputs stack info like this:
-  //   STACK WIN 4 1040 73 33 0 ...
-  //   STACK WIN 4 105a 59 19 0 ...
-  // because in both of these entries, the beginning of the code after the
-  // prolog is at 0x1073, and the last byte of contained code is at 0x10b2.
-  // Perhaps we could get away with storing ranges by rva + prolog_size
-  // if ContainedRangeMap were modified to allow replacement of
-  // already-stored values.
-
-  linked_ptr<WindowsFrameInfo> stack_frame_info(
-      new WindowsFrameInfo(prolog_size,
-                         epilog_size,
-                         parameter_size,
-                         saved_register_size,
-                         local_size,
-                         max_stack_size,
-                         allocates_base_pointer,
-                         program_string));
-  windows_frame_info_[type].StoreRange(rva, code_size, stack_frame_info);
-
-  return true;
 }
 
 bool BasicSourceLineResolver::Module::ParseCFIFrameInfo(
@@ -823,7 +426,7 @@ bool BasicSourceLineResolver::Module::ParseCFIFrameInfo(
     // This record has the form "STACK INIT <address> <size> <rules...>".
     char *address_field = strtok_r(NULL, " \r\n", &cursor);
     if (!address_field) return false;
-    
+
     char *size_field = strtok_r(NULL, " \r\n", &cursor);
     if (!size_field) return false;
 
@@ -843,11 +446,6 @@ bool BasicSourceLineResolver::Module::ParseCFIFrameInfo(
   MemAddr address = strtoul(address_field, NULL, 16);
   cfi_delta_rules_[address] = delta_rules;
   return true;
-}
-
-bool BasicSourceLineResolver::CompareString::operator()(
-    const string &s1, const string &s2) const {
-  return strcmp(s1.c_str(), s2.c_str()) < 0;
 }
 
 }  // namespace google_breakpad

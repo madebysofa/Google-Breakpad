@@ -33,10 +33,10 @@
 //
 // Author: Mark Mentovai
 
-
-#include <cassert>
-
 #include "google_breakpad/processor/stackwalker.h"
+
+#include <assert.h>
+
 #include "google_breakpad/processor/call_stack.h"
 #include "google_breakpad/processor/code_module.h"
 #include "google_breakpad/processor/code_modules.h"
@@ -55,6 +55,7 @@
 
 namespace google_breakpad {
 
+u_int32_t Stackwalker::max_frames_ = 1024;
 
 Stackwalker::Stackwalker(const SystemInfo *system_info,
                          MemoryRegion *memory,
@@ -92,19 +93,22 @@ bool Stackwalker::Walk(CallStack *stack) {
       if (module) {
         frame->module = module;
         if (resolver_ &&
-            !resolver_->HasModule(frame->module->code_file()) &&
+            !resolver_->HasModule(frame->module) &&
             no_symbol_modules_.find(
                 module->code_file()) == no_symbol_modules_.end() &&
             supplier_) {
-          string symbol_data, symbol_file;
+          string symbol_file;
+          char *symbol_data = NULL;
           SymbolSupplier::SymbolResult symbol_result =
-              supplier_->GetSymbolFile(module, system_info_,
-                                       &symbol_file, &symbol_data);
+              supplier_->GetCStringSymbolData(module,
+                                              system_info_,
+                                              &symbol_file,
+                                              &symbol_data);
 
           switch (symbol_result) {
             case SymbolSupplier::FOUND:
-              resolver_->LoadModuleUsingMapBuffer(frame->module->code_file(),
-                                                  symbol_data);
+              resolver_->LoadModuleUsingMemoryBuffer(frame->module,
+                                                     symbol_data);
               break;
             case SymbolSupplier::NOT_FOUND:
               no_symbol_modules_.insert(module->code_file());
@@ -112,14 +116,22 @@ bool Stackwalker::Walk(CallStack *stack) {
             case SymbolSupplier::INTERRUPT:
               return false;
           }
+          // Inform symbol supplier to free the unused data memory buffer.
+          if (resolver_->ShouldDeleteMemoryBufferAfterLoadModule())
+            supplier_->FreeSymbolData(module);
         }
-        resolver_->FillSourceLineInfo(frame.get());
+        if (resolver_)
+          resolver_->FillSourceLineInfo(frame.get());
       }
     }
 
     // Add the frame to the call stack.  Relinquish the ownership claim
     // over the frame, because the stack now owns it.
     stack->frames_.push_back(frame.release());
+    if (stack->frames_.size() > max_frames_) {
+      BPLOG(ERROR) << "The stack is over " << max_frames_ << " frames.";
+      break;
+    }
 
     // Get the next frame and take ownership.
     frame.reset(GetCallerFrame(stack));
@@ -166,7 +178,7 @@ Stackwalker* Stackwalker::StackwalkerForCPU(
                                              memory, modules, supplier,
                                              resolver);
       break;
-  
+
     case MD_CONTEXT_SPARC:
       cpu_stackwalker = new StackwalkerSPARC(system_info,
                                              context->GetContextSPARC(),
@@ -201,14 +213,15 @@ bool Stackwalker::InstructionAddressSeemsValid(u_int64_t address) {
     return true;
   }
 
-  if (!resolver_->HasModule(module->code_file())) {
-    string symbol_data, symbol_file;
+  if (!resolver_->HasModule(module)) {
+    string symbol_file;
+    char *symbol_data = NULL;
     SymbolSupplier::SymbolResult symbol_result =
-      supplier_->GetSymbolFile(module, system_info_,
-                               &symbol_file, &symbol_data);
+      supplier_->GetCStringSymbolData(module, system_info_,
+                                      &symbol_file, &symbol_data);
 
     if (symbol_result != SymbolSupplier::FOUND ||
-        !resolver_->LoadModuleUsingMapBuffer(module->code_file(),
+        !resolver_->LoadModuleUsingMemoryBuffer(module,
                                              symbol_data)) {
       // we don't have symbols, but we're inside a loaded module
       return true;

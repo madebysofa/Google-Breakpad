@@ -66,6 +66,7 @@ StackFrame* StackwalkerSPARC::GetContextFrame() {
   // straight out of the CPU context structure.
   frame->context = *context_;
   frame->context_validity = StackFrameSPARC::CONTEXT_VALID_ALL;
+  frame->trust = StackFrame::FRAME_TRUST_CONTEXT;
   frame->instruction = frame->context.pc;
 
   return frame;
@@ -93,7 +94,7 @@ StackFrame* StackwalkerSPARC::GetCallerFrame(const CallStack *stack) {
   // A caller frame must reside higher in memory than its callee frames.
   // Anything else is an error, or an indication that we've reached the
   // end of the stack.
-  u_int32_t stack_pointer = last_frame->context.g_r[30];
+  u_int64_t stack_pointer = last_frame->context.g_r[30];
   if (stack_pointer <= last_frame->context.g_r[14]) {
     return NULL;
   }
@@ -129,6 +130,7 @@ StackFrame* StackwalkerSPARC::GetCallerFrame(const CallStack *stack) {
   frame->context_validity = StackFrameSPARC::CONTEXT_VALID_PC |
                             StackFrameSPARC::CONTEXT_VALID_SP |
                             StackFrameSPARC::CONTEXT_VALID_FP;
+  frame->trust = StackFrame::FRAME_TRUST_FP;
                             
   return frame;
 }

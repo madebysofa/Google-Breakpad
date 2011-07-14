@@ -1,4 +1,4 @@
-// Copyright (c) 2009, Google Inc.
+// Copyright (c) 2010, Google Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,18 +34,38 @@
 #include <linux/limits.h>
 #include <stdint.h>
 #include <sys/types.h>
+#if !defined(__ANDROID__)
 #include <sys/user.h>
+#endif
 
-#include "common/linux/memory.h"
+#include "common/memory.h"
 #include "google_breakpad/common/minidump_format.h"
 
 namespace google_breakpad {
 
+#if defined(__i386) || defined(__x86_64)
 typedef typeof(((struct user*) 0)->u_debugreg[0]) debugreg_t;
+#endif
 
 // Typedef for our parsing of the auxv variables in /proc/pid/auxv.
 #if defined(__i386) || defined(__ARM_EABI__)
+#if !defined(__ANDROID__)
 typedef Elf32_auxv_t elf_aux_entry;
+#else
+// Android is missing this structure definition
+typedef struct
+{
+  uint32_t a_type;              /* Entry type */
+  union
+    {
+      uint32_t a_val;           /* Integer value */
+    } a_un;
+} elf_aux_entry;
+
+#if !defined(AT_SYSINFO_EHDR)
+#define AT_SYSINFO_EHDR 33
+#endif
+#endif  // __ANDROID__
 #elif defined(__x86_64__)
 typedef Elf64_auxv_t elf_aux_entry;
 #endif
@@ -76,8 +96,12 @@ struct ThreadInfo {
 
 #elif defined(__ARM_EABI__)
   // Mimicking how strace does this(see syscall.c, search for GETREGS)
+#if defined(__ANDROID__)
+  struct pt_regs regs;
+#else
   struct user_regs regs;
   struct user_fpregs fpregs;
+#endif  // __ANDROID__
 #endif
 };
 
@@ -127,8 +151,11 @@ class LinuxDumper {
   // without any slashes.
   void BuildProcPath(char* path, pid_t pid, const char* node) const;
 
-  // Generate a File ID from the .text section of a mapped entry
-  bool ElfFileIdentifierForMapping(unsigned int mapping_id,
+  // Generate a File ID from the .text section of a mapped entry.
+  // If not a member, mapping_id is ignored.
+  bool ElfFileIdentifierForMapping(const MappingInfo& mapping,
+                                   bool member,
+                                   unsigned int mapping_id,
                                    uint8_t identifier[sizeof(MDGUID)]);
 
   // Utility method to find the location of where the kernel has
@@ -140,6 +167,17 @@ class LinuxDumper {
  private:
   bool EnumerateMappings(wasteful_vector<MappingInfo*>* result) const;
   bool EnumerateThreads(wasteful_vector<pid_t>* result) const;
+
+  // For the case where a running program has been deleted, it'll show up in
+  // /proc/pid/maps as "/path/to/program (deleted)". If this is the case, then
+  // see if '/path/to/program (deleted)' matches /proc/pid/exe and return
+  // /proc/pid/exe in |path| so ELF identifier generation works correctly. This
+  // also checks to see if '/path/to/program (deleted)' exists, so it does not
+  // get fooled by a poorly named binary.
+  // For programs that don't end with ' (deleted)', this is a no-op.
+  // This assumes |path| is a buffer with length NAME_MAX.
+  // Returns true if |path| is modified.
+  bool HandleDeletedFileInMapping(char* path) const;
 
   const pid_t pid_;
 

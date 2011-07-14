@@ -45,7 +45,7 @@
 #include "google_breakpad/common/minidump_format.h"
 #include "google_breakpad/processor/stackwalker.h"
 #include "google_breakpad/processor/stack_frame_cpu.h"
-#include "src/processor/cfi_frame_info.h"
+#include "processor/cfi_frame_info.h"
 
 namespace google_breakpad {
 
@@ -95,19 +95,6 @@ class StackwalkerX86 : public Stackwalker {
   // frames.back(). The caller takes ownership of the returned frame.
   // Return NULL on failure.
   StackFrameX86 *GetCallerByEBPAtBase(const vector<StackFrame*> &frames);
-
-  // Scan the stack starting at location_start, looking for an address
-  // that looks like a valid instruction pointer. Addresses must
-  // 1) be contained in the current stack memory
-  // 2) pass the checks in Stackwalker::InstructionAddressSeemsValid
-  //
-  // Returns true if a valid-looking instruction pointer was found.
-  // When returning true, sets location_found to the address at which
-  // the value was found, and eip_found to the value contained at that
-  // location in memory.
-  bool ScanForReturnAddress(u_int32_t location_start,
-                            u_int32_t *location_found,
-                            u_int32_t *eip_found);
 
   // Stores the CPU context corresponding to the innermost stack frame to
   // be returned by GetContextFrame.

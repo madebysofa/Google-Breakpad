@@ -32,22 +32,40 @@
 // id.
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#pragma GCC optimize ("O0")
-void *thread_function(void *data) __attribute__((noinline, optimize("O2")));
+#include "third_party/lss/linux_syscall_support.h"
+
+#if defined(__ARM_EABI__)
+#define TID_PTR_REGISTER "r3"
+#elif defined(__i386)
+#define TID_PTR_REGISTER "ecx"
+#elif defined(__x86_64)
+#define TID_PTR_REGISTER "rcx"
+#else
+#error This test has not been ported to this platform.
+#endif
 
 void *thread_function(void *data) {
-  pid_t thread_id = syscall(SYS_gettid);
-  while (true) ;
-  asm("");
+  volatile pid_t thread_id = syscall(__NR_gettid);
+  register volatile pid_t *thread_id_ptr asm(TID_PTR_REGISTER) = &thread_id;
+  while (true)
+    asm volatile ("" : : "r" (thread_id_ptr));
+  return NULL;
 }
 
 int main(int argc, char *argv[]) {
-  int num_threads = atoi(argv[1]);
+  if (argc < 2) {
+    fprintf(stderr,
+            "usage: linux_dumper_unittest_helper <pipe fd> <# of threads\n");
+    return 1;
+  }
+  int pipefd = atoi(argv[1]);
+  int num_threads = atoi(argv[2]);
   if (num_threads < 1) {
     fprintf(stderr, "ERROR: number of threads is 0");
     return 1;
@@ -59,6 +77,9 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < num_threads; i++) {
     pthread_create(&threads[i], &thread_attributes, &thread_function, NULL);
   }
+  // Signal parent that this process has started all threads.
+  uint8_t byte = 1;
+  write(pipefd, &byte, sizeof(byte));
   thread_function(NULL);
   return 0;
 }

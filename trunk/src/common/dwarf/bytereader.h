@@ -85,7 +85,7 @@ class ByteReader {
   //
   // - If N is between 0 and 0x7f, then its unsigned LEB128
   //   representation is a single byte whose value is N.
-  // 
+  //
   // - Otherwise, its unsigned LEB128 representation is (N & 0x7f) |
   //   0x80, followed by the unsigned LEB128 representation of N /
   //   128, rounded towards negative infinity.
@@ -104,7 +104,7 @@ class ByteReader {
   // - If N is between -0x40 and 0x3f, then its signed LEB128
   //   representation is a single byte whose value is N in two's
   //   complement.
-  // 
+  //
   // - Otherwise, its signed LEB128 representation is (N & 0x7f) |
   //   0x80, followed by the signed LEB128 representation of N / 128,
   //   rounded towards negative infinity.
