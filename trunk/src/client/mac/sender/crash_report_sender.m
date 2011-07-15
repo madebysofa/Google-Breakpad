@@ -480,7 +480,6 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
   [ud synchronize];
   return crashClientID;
 }
-
 //=============================================================================
 - (BOOL)readLogFileData {
 
@@ -622,7 +621,6 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
     NSTask *symbolicateTask = [[[NSTask alloc] init] autorelease];
     
     NSString *symbolicateToolPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"crash_report"];
-    
     [symbolicateTask setLaunchPath:symbolicateToolPath];
     [symbolicateTask setArguments:[NSArray arrayWithObjects:minidumpPath, nil]];
     
@@ -750,7 +748,7 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
   if (success) {
     minidumpContents_ = [[NSData alloc] initWithContentsOfFile:aMinidumpPath];
     success = ([minidumpContents_ length] ? YES : NO);
-	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
+//	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
   }
 
   if (!success && !failBecauseOfSize) {
@@ -1235,6 +1233,8 @@ doCommandBySelector:(SEL)commandSelector {
   [sofaDictionary_ setObject:@"ProductName" forKey:@BREAKPAD_PRODUCT];
   [sofaDictionary_ setObject:@"Email" forKey:@BREAKPAD_EMAIL];
   [sofaDictionary_ setObject:@"ReportUUID" forKey:@BREAKPAD_REPORT_UUID];
+  [sofaDictionary_ setObject:@"OSVersionString" forKey:@BREAKPAD_OS_VERSION_STRING];
+  [sofaDictionary_ setObject:@"OSBuildString" forKey:@BREAKPAD_OS_BUILD_STRING];
 }
 
 - (NSMutableDictionary *)dictionaryForServerType:(NSString *)serverType {
@@ -1306,7 +1306,7 @@ doCommandBySelector:(SEL)commandSelector {
 
   // Add minidump file
   if (minidumpContents_) {
-	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
+//	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
 	[upload addFileContents:minidumpContents_ name:@"upload_file_minidump"];
 
     // Send it

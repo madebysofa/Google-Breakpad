@@ -38,7 +38,6 @@
 		3329D4ED0FA16D820007BBC5 /* Breakpad.xib in Resources */ = {isa = PBXBuildFile; fileRef = 3329D4EC0FA16D820007BBC5 /* Breakpad.xib */; };
 		33880C800F9E097100817F82 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 33880C7E0F9E097100817F82 /* InfoPlist.strings */; };
 		4084699D0F5D9CF900FDCA37 /* crash_report_sender.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4084699C0F5D9CF900FDCA37 /* crash_report_sender.icns */; };
-		431C0DC111860F22000B4089 /* crash_report in Resources */ = {isa = PBXBuildFile; fileRef = 431C0DBF11860F1C000B4089 /* crash_report */; };
 		4351EDF41188AC9A00EB7362 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 4351EDF31188AC9A00EB7362 /* MainMenu.nib */; };
 		4383EF6C128C480000847E1B /* crash_report_badge.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4383EF6B128C480000847E1B /* crash_report_badge.icns */; };
 		4DBE49A6134A4F200072546A /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DBE4769134A4F080072546A /* CoreServices.framework */; };
@@ -58,6 +57,9 @@
 		8B4BDABE12012CEF009C7060 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8B4BDAA7120124EA009C7060 /* libcrypto.dylib */; };
 		8B4BDAC512012D05009C7060 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8B4BDAA7120124EA009C7060 /* libcrypto.dylib */; };
 		8DC2EF570486A6940098B216 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7B1FEA5585E11CA2CBB /* Cocoa.framework */; };
+		AB6D796713D0501B001A8445 /* crash_report in Resources */ = {isa = PBXBuildFile; fileRef = F95BB885101F949F00AA053B /* crash_report */; };
+		AB6D7D3A13D05A64001A8445 /* SFOSVersion.mm in Sources */ = {isa = PBXBuildFile; fileRef = AB6D7CED13D05752001A8445 /* SFOSVersion.mm */; };
+		AB6D7D6A13D05B9F001A8445 /* SFOSVersion.h in Headers */ = {isa = PBXBuildFile; fileRef = AB6D7CEC13D05752001A8445 /* SFOSVersion.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D23F4B2E12A7E13200686C8D /* minidump_generator_test.cc in Sources */ = {isa = PBXBuildFile; fileRef = D23F4B2C12A7E13200686C8D /* minidump_generator_test.cc */; };
 		D23F4B3312A7E17700686C8D /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D2F9A41512131EF0002747C1 /* libgtest.a */; };
 		D23F4BB112A868CB00686C8D /* minidump_generator_test_helper.cc in Sources */ = {isa = PBXBuildFile; fileRef = D23F4B9A12A8688800686C8D /* minidump_generator_test_helper.cc */; };
@@ -345,6 +347,13 @@
 			remoteGlobalIDString = D21F97D211CBA0F200239E38;
 			remoteInfo = test_assembler_unittest;
 		};
+		AB6D796813D05023001A8445 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F95BB87C101F949F00AA053B /* crash_report.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76F960486AA7600D96B5E;
+			remoteInfo = crash_report;
+		};
 		D23F4B2F12A7E16200686C8D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -551,7 +560,6 @@
 		3329D4EC0FA16D820007BBC5 /* Breakpad.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Breakpad.xib; path = sender/Breakpad.xib; sourceTree = "<group>"; };
 		33880C7F0F9E097100817F82 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = sender/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4084699C0F5D9CF900FDCA37 /* crash_report_sender.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = crash_report_sender.icns; path = sender/crash_report_sender.icns; sourceTree = "<group>"; };
-		431C0DBF11860F1C000B4089 /* crash_report */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = crash_report; sourceTree = "<group>"; };
 		4351EDF31188AC9A00EB7362 /* MainMenu.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = MainMenu.nib; path = sender/MainMenu.nib; sourceTree = "<group>"; };
 		4383EF6B128C480000847E1B /* crash_report_badge.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = crash_report_badge.icns; sourceTree = "<group>"; };
 		4DBE4769134A4F080072546A /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
@@ -563,6 +571,8 @@
 		8B31FFF611F0C90500FCF3E4 /* Breakpad.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Breakpad.xcconfig; path = ../../common/mac/Breakpad.xcconfig; sourceTree = SOURCE_ROOT; };
 		8B4BDAA7120124EA009C7060 /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = usr/lib/libcrypto.dylib; sourceTree = SDKROOT; };
 		8DC2EF5B0486A6940098B216 /* Breakpad.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Breakpad.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB6D7CEC13D05752001A8445 /* SFOSVersion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SFOSVersion.h; sourceTree = "<group>"; };
+		AB6D7CED13D05752001A8445 /* SFOSVersion.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SFOSVersion.mm; sourceTree = "<group>"; };
 		D23F4B2C12A7E13200686C8D /* minidump_generator_test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = minidump_generator_test.cc; path = tests/minidump_generator_test.cc; sourceTree = "<group>"; };
 		D23F4B9A12A8688800686C8D /* minidump_generator_test_helper.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = minidump_generator_test_helper.cc; path = tests/minidump_generator_test_helper.cc; sourceTree = "<group>"; };
 		D23F4BAB12A868A500686C8D /* minidump_generator_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = minidump_generator_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -988,6 +998,8 @@
 				F945859D0F78241E009A47BF /* Info.plist */,
 				F92C56310ECD0DF1009BE4BA /* OnDemandServer.h */,
 				F92C56320ECD0DF1009BE4BA /* OnDemandServer.mm */,
+				AB6D7CEC13D05752001A8445 /* SFOSVersion.h */,
+				AB6D7CED13D05752001A8445 /* SFOSVersion.mm */,
 				F92C55CE0ECD0064009BE4BA /* Breakpad.h */,
 				F92C55CF0ECD0064009BE4BA /* Breakpad.mm */,
 			);
@@ -997,7 +1009,6 @@
 		F92C56A60ECE04B6009BE4BA /* sender */ = {
 			isa = PBXGroup;
 			children = (
-				431C0DBF11860F1C000B4089 /* crash_report */,
 				F9B6309F100FF96B00D0F4AC /* goArrow.png */,
 				F92C56A70ECE04C5009BE4BA /* crash_report_sender.h */,
 				F92C56A80ECE04C5009BE4BA /* crash_report_sender.m */,
@@ -1109,6 +1120,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F92C55D00ECD0064009BE4BA /* Breakpad.h in Headers */,
+				AB6D7D6A13D05B9F001A8445 /* SFOSVersion.h in Headers */,
 				F92C56330ECD0DF1009BE4BA /* OnDemandServer.h in Headers */,
 				D2F9A4C9121336C7002747C1 /* client_info.h in Headers */,
 				D2F9A4CA121336C7002747C1 /* crash_generation_client.h in Headers */,
@@ -1252,6 +1264,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				AB6D796913D05023001A8445 /* PBXTargetDependency */,
 			);
 			name = "crash-report-sender";
 			productName = crash_report_sender;
@@ -1545,12 +1558,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB6D796713D0501B001A8445 /* crash_report in Resources */,
 				F945849E0F280E3C009A47BF /* Localizable.strings in Resources */,
 				4084699D0F5D9CF900FDCA37 /* crash_report_sender.icns in Resources */,
 				33880C800F9E097100817F82 /* InfoPlist.strings in Resources */,
 				3329D4ED0FA16D820007BBC5 /* Breakpad.xib in Resources */,
 				F9B630A0100FF96B00D0F4AC /* goArrow.png in Resources */,
-				431C0DC111860F22000B4089 /* crash_report in Resources */,
 				4351EDF41188AC9A00EB7362 /* MainMenu.nib in Resources */,
 				4383EF6C128C480000847E1B /* crash_report_badge.icns in Resources */,
 			);
@@ -1631,6 +1644,7 @@
 				F92C56340ECD0DF1009BE4BA /* OnDemandServer.mm in Sources */,
 				D2F9A4CB121336C7002747C1 /* crash_generation_client.cc in Sources */,
 				D2F9A4CD121336C7002747C1 /* crash_generation_server.cc in Sources */,
+				AB6D7D3A13D05A64001A8445 /* SFOSVersion.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1851,6 +1865,11 @@
 			isa = PBXTargetDependency;
 			name = minidump_upload;
 			targetProxy = 8B31051E11F1010E00FCF3E4 /* PBXContainerItemProxy */;
+		};
+		AB6D796913D05023001A8445 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = crash_report;
+			targetProxy = AB6D796813D05023001A8445 /* PBXContainerItemProxy */;
 		};
 		D23F4B3012A7E16200686C8D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

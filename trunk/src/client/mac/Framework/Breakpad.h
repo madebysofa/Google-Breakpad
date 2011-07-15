@@ -106,6 +106,9 @@ extern "C" {
 #define BREAKPAD_LOGFILES_TODELETE		  "BreakpadLogFilesToDelete"
 #define BREAKPAD_DELLOGFILE_KEY_PREFIX    "BreakpadAppDelLogFile"
 #define BREAKPAD_MEMORY_USAGE			  "BreakpadMemoryUsage"
+//////// NEW STUFF FOR JON, YAY!!!!
+#define BREAKPAD_OS_VERSION_STRING		  "BreakpadOSVersionString"
+#define BREAKPAD_OS_BUILD_STRING          "BreakpadOSBuildString"
 	
 // Optional user-defined function to dec to decide if we should handle
 // this crash or forward it along.

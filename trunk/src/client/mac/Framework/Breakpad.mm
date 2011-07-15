@@ -52,6 +52,7 @@
 #import <sys/sysctl.h>
 
 #import <Foundation/Foundation.h>
+#import "SFOSVersion.h"
 
 
 using google_breakpad::KeyValueEntry;
@@ -599,6 +600,12 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
   dictionary.SetKeyValue(BREAKPAD_REPORT_UUID, [anUuidString UTF8String]);
   [anUuidString release];
   
+  NSString *osVersionString = (NSString *)SFCreateOSVersionString();
+  if (osVersionString != nil) {
+    dictionary.SetKeyValue(BREAKPAD_OS_BUILD_STRING, [osVersionString UTF8String]);
+	[osVersionString release];
+  }
+	
   struct timeval tv;
   gettimeofday(&tv, NULL);
   char timeStartedString[32];

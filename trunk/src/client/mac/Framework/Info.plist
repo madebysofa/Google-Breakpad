@@ -23,6 +23,6 @@
 	<key>NSPrincipalClass</key>
 	<string></string>
 	<key>SFBreakpadVersion</key>
-	<string>0.3.2</string>
+	<string>0.4.0</string>
 </dict>
 </plist>
