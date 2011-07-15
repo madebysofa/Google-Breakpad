@@ -1241,9 +1241,9 @@
 			productReference = F92C563C0ECD10B3009BE4BA /* breakpadUtilities.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
-		F92C569F0ECE04A7009BE4BA /* crash_report_sender */ = {
+		F92C569F0ECE04A7009BE4BA /* crash-report-sender */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F92C56A50ECE04A8009BE4BA /* Build configuration list for PBXNativeTarget "crash_report_sender" */;
+			buildConfigurationList = F92C56A50ECE04A8009BE4BA /* Build configuration list for PBXNativeTarget "crash-report-sender" */;
 			buildPhases = (
 				F92C569C0ECE04A7009BE4BA /* Resources */,
 				F92C569D0ECE04A7009BE4BA /* Sources */,
@@ -1253,7 +1253,7 @@
 			);
 			dependencies = (
 			);
-			name = crash_report_sender;
+			name = "crash-report-sender";
 			productName = crash_report_sender;
 			productReference = F92C56A00ECE04A7009BE4BA /* crash-report-sender.app */;
 			productType = "com.apple.product-type.application";
@@ -1387,7 +1387,7 @@
 				8DC2EF4F0486A6940098B216 /* Breakpad */,
 				F92C53530ECCE349009BE4BA /* Inspector */,
 				F92C563B0ECD10B3009BE4BA /* breakpadUtilities */,
-				F92C569F0ECE04A7009BE4BA /* crash_report_sender */,
+				F92C569F0ECE04A7009BE4BA /* crash-report-sender */,
 				F9C44DA40EF060A8003AEBAA /* BreakpadTest */,
 				F94585840F782326009A47BF /* All */,
 				F9C77DD90F7DD5CF0045F7DB /* UnitTests */,
@@ -1929,7 +1929,7 @@
 		};
 		F945858E0F782333009A47BF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F92C569F0ECE04A7009BE4BA /* crash_report_sender */;
+			target = F92C569F0ECE04A7009BE4BA /* crash-report-sender */;
 			targetProxy = F945858D0F782333009A47BF /* PBXContainerItemProxy */;
 		};
 		F94585900F782336009A47BF /* PBXTargetDependency */ = {
@@ -1959,7 +1959,7 @@
 		};
 		F9C44E970EF09F4B003AEBAA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F92C569F0ECE04A7009BE4BA /* crash_report_sender */;
+			target = F92C569F0ECE04A7009BE4BA /* crash-report-sender */;
 			targetProxy = F9C44E960EF09F4B003AEBAA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -2613,7 +2613,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F92C56A50ECE04A8009BE4BA /* Build configuration list for PBXNativeTarget "crash_report_sender" */ = {
+		F92C56A50ECE04A8009BE4BA /* Build configuration list for PBXNativeTarget "crash-report-sender" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F92C56A30ECE04A8009BE4BA /* Debug */,

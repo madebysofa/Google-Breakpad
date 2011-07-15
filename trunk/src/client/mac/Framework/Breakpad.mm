@@ -527,7 +527,7 @@ bool Breakpad::ExtractParameters(NSDictionary *parameters) {
   if (!reporterPathString) {
     reporterPathString =
         [resourcePath
-         stringByAppendingPathComponent:@"crash_report_sender.app"];
+         stringByAppendingPathComponent:@"crash-report-sender.app"];
     reporterPathString =
         [[NSBundle bundleWithPath:reporterPathString] executablePath];
   }

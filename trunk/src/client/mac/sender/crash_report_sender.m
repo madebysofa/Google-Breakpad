@@ -613,6 +613,8 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
   NSString *minidumpPath = [minidumpDir stringByAppendingPathComponent:minidumpID];
   minidumpPath = [minidumpPath stringByAppendingPathExtension:@"dmp"];
   
+//	NSLog(@"%p %s %@", self, __func__, minidumpPath);
+	
   // NSLog(@"a minidump exists for pre-symbolication: %i", [[NSFileManager defaultManager] fileExistsAtPath:minidumpPath]);
 	
   if ([[NSFileManager defaultManager] fileExistsAtPath:minidumpPath]) {
@@ -642,9 +644,10 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
     sprintf(tmpFilenameTemplate, "%s/%s-XXXX", tmpDir, [@"symbolicated.log" fileSystemRepresentation]);
     char *tmpFile = mktemp(tmpFilenameTemplate);
     NSString *tmpFilePathString = [NSString stringWithUTF8String:tmpFile];
-    
+//	  NSLog(@"%p %s %@ %@", self, __func__, symbolicatedData, [[[NSString alloc] initWithData:symbolicatedData encoding:NSUTF8StringEncoding] autorelease]);
     [symbolicatedData writeToFile:tmpFilePathString atomically:NO];
     [logFilenames addObject:[tmpFilePathString lastPathComponent]];
+	  NSLog(@"%p %s %@", self, __func__, logFilenames);
     // end symbolicate
   }
   
@@ -695,6 +698,7 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
 		path = [path stringByAppendingPathExtension:@"dmp"];
 		
 		if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+			NSLog(@"%p %s %@", self, __func__, path);
 			return path;
 		}
 	}
@@ -746,6 +750,7 @@ static inline NSString *formatFileSize(unsigned long theFileLength) {
   if (success) {
     minidumpContents_ = [[NSData alloc] initWithContentsOfFile:aMinidumpPath];
     success = ([minidumpContents_ length] ? YES : NO);
+	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
   }
 
   if (!success && !failBecauseOfSize) {
@@ -1301,7 +1306,8 @@ doCommandBySelector:(SEL)commandSelector {
 
   // Add minidump file
   if (minidumpContents_) {
-    [upload addFileContents:minidumpContents_ name:@"upload_file_minidump"];
+	  NSLog(@"%p %s %@", self, __func__, minidumpContents_);
+	[upload addFileContents:minidumpContents_ name:@"upload_file_minidump"];
 
     // Send it
     NSError *error = nil;
